@@ -121,6 +121,21 @@ final class ChatHandler
 				. ' — действия в CRM и задачах выполняй от его имени.';
 		}
 
+		// Адрес портала и шаблоны ссылок: без них модель выдумывает URL
+		// вида https://example.com/crm/deal/view/456/.
+		$portal = rtrim(Config::portalUrl(), '/');
+		if ($portal !== '')
+		{
+			$system .= "\nАдрес портала: {$portal}. Ссылку на карточку CRM строй ТОЛЬКО по шаблонам "
+				. "(вместо {id} — номер сущности):\n"
+				. "- сделка: {$portal}/crm/deal/details/{id}/\n"
+				. "- лид: {$portal}/crm/lead/details/{id}/\n"
+				. "- контакт: {$portal}/crm/contact/details/{id}/\n"
+				. "- компания: {$portal}/crm/company/details/{id}/\n"
+				. "Никогда не используй другие домены (example.com и т.п.) и пути. "
+				. 'Если не уверен в ID — сначала найди сущность инструментом.';
+		}
+
 		if (!$nativeTools)
 		{
 			$system .= "\n\n" . $this->jsonProtocolPrompt();

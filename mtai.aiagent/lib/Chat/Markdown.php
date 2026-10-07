@@ -33,8 +33,10 @@ final class Markdown
 		$text = preg_replace('/(?<![\w*])\*([^*\n]+)\*(?![\w*])/u', '[I]$1[/I]', $text) ?? $text;
 		$text = preg_replace('/(?<![\w_])_([^_\n]+)_(?![\w_])/u', '[I]$1[/I]', $text) ?? $text;
 
-		// Ссылки [текст](url) → [URL=url]текст[/URL]; голые http(s)-ссылки.
+		// Ссылки [текст](url) → [URL=url]текст[/URL]; голые http(s)-ссылки;
+		// [URL]...[/URL] без адреса в атрибуте — GigaChat любит такой вариант.
 		$text = preg_replace('/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/u', '[URL=$2]$1[/URL]', $text) ?? $text;
+		$text = preg_replace('/\[URL\](https?:\/\/[^\s\[<]+)\[\/URL\]/u', '[URL=$1]$1[/URL]', $text) ?? $text;
 		$text = preg_replace('/(?<![\]=])(https?:\/\/[^\s<\[]+)/u', '[URL=$1]$1[/URL]', $text) ?? $text;
 
 		// Заголовки → жирная строка.

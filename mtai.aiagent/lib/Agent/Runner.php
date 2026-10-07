@@ -154,6 +154,16 @@ final class Runner
 		$now = new \Bitrix\Main\Type\DateTime();
 		$system .= "\n\nКонтекст: текущая дата и время — " . $now->format('d.m.Y (D) H:i') . '.';
 
+		// Адрес портала и шаблоны ссылок — иначе модель выдумывает URL.
+		$portal = rtrim(Config::portalUrl(), '/');
+		if ($portal !== '')
+		{
+			$system .= "\nАдрес портала: {$portal}. Ссылку на карточку CRM строй только по шаблонам: "
+				. "{$portal}/crm/deal/details/{id}/ (сделка), {$portal}/crm/lead/details/{id}/ (лид), "
+				. "{$portal}/crm/contact/details/{id}/ (контакт), {$portal}/crm/company/details/{id}/ (компания). "
+				. 'Другие домены и пути запрещены.';
+		}
+
 		$messages = [['role' => 'system', 'content' => $system]];
 		foreach ($memory->load($key) as $item)
 		{
