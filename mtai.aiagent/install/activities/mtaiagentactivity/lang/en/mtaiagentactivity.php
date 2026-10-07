@@ -1,0 +1,14 @@
+<?php
+
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_QUESTION'] = 'Question / task';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MODE'] = 'Mode';
+$MESS['MTAI_AIAGENT_ACTIVITY_MODE_ASSISTANT'] = 'Assistant answer (knowledge base)';
+$MESS['MTAI_AIAGENT_ACTIVITY_MODE_DIRECT'] = 'Direct model request (no knowledge base)';
+$MESS['MTAI_AIAGENT_ACTIVITY_MODE_AGENT'] = 'Execute task (CRM tools)';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_SYSTEM_PROMPT'] = 'System prompt (overrides module settings)';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MEMORY_KEY'] = 'Dialog memory key';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_USER_ID'] = 'User ID (on whose behalf CRM actions run)';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_ANSWER_FIELD'] = 'Document field for the answer (empty = do not write)';
+$MESS['MTAI_AIAGENT_ACTIVITY_ERROR_FIELD_WRITE'] = 'Cannot write the answer to the document field';
+$MESS['MTAI_AIAGENT_ACTIVITY_ERROR_QUESTION_EMPTY'] = 'AI agent question is empty';
+$MESS['MTAI_AIAGENT_ACTIVITY_ERROR_MODULE'] = 'Module mtai.aiagent is not installed';

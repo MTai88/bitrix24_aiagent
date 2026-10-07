@@ -1,0 +1,24 @@
+<?php
+
+$MESS['MTAI_AIAGENT_ACCESS_DENIED'] = 'Insufficient rights to manage the module';
+
+$MESS['MTAI_AIAGENT_LOGS_TITLE'] = 'AI agent log';
+$MESS['MTAI_AIAGENT_LOGS_FILTER'] = 'Filter';
+$MESS['MTAI_AIAGENT_LOGS_LEVEL'] = 'Level';
+$MESS['MTAI_AIAGENT_LOGS_ALL'] = 'all';
+$MESS['MTAI_AIAGENT_LOGS_CATEGORY'] = 'Category';
+$MESS['MTAI_AIAGENT_LOGS_APPLY'] = 'Apply';
+$MESS['MTAI_AIAGENT_LOGS_HEAD'] = 'Records';
+$MESS['MTAI_AIAGENT_LOGS_DATE'] = 'Date';
+$MESS['MTAI_AIAGENT_LOGS_MESSAGE'] = 'Message';
+$MESS['MTAI_AIAGENT_LOGS_CONTEXT'] = 'Context';
+$MESS['MTAI_AIAGENT_LOGS_EMPTY'] = 'Log is empty';
+$MESS['MTAI_AIAGENT_LOGS_CLEAR'] = 'Clear log';
+$MESS['MTAI_AIAGENT_LOGS_CLEAR_CONFIRM'] = 'Clear the whole log?';
+
+$MESS['MTAI_AIAGENT_LOGS_SUMMARY'] = 'Daily summary';
+$MESS['MTAI_AIAGENT_LOGS_SUMMARY_DAY'] = 'Events by category';
+$MESS['MTAI_AIAGENT_LOGS_SUMMARY_STATE'] = 'State';
+$MESS['MTAI_AIAGENT_LOGS_SUMMARY_QUEUE'] = 'queue new';
+$MESS['MTAI_AIAGENT_LOGS_SUMMARY_ERRORS'] = 'errors';
+$MESS['MTAI_AIAGENT_LOGS_SUMMARY_KB'] = 'knowledge base (documents / chunks)';
