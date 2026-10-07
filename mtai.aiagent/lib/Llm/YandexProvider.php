@@ -77,8 +77,8 @@ final class YandexProvider implements ProviderInterface
 		$vectors = [];
 		foreach ($texts as $text)
 		{
-			$response = $this->request('/text/embeddings', [
-				'modelUri' => $this->modelUri('emb', Config::get('llm_embedding_model', 'text-search/latest')),
+			$response = $this->request('/textEmbedding', [
+				'modelUri' => $this->modelUri('emb', Config::get('llm_embedding_model', 'text-search-query')),
 				'text' => (string)$text,
 			]);
 
@@ -93,8 +93,16 @@ final class YandexProvider implements ProviderInterface
 	private function modelUri(string $family, ?string $model): string
 	{
 		$folder = Config::get('llm_yandex_folder', '');
+		$model = $model ?? Config::get('llm_model', 'yandexgpt');
 
-		return $family . '://' . $folder . '/' . ($model ?? Config::get('llm_model', 'gpt'));
+		// Нормализация: «yandexgpt» → «yandexgpt/latest» (Yandex требует
+		// или любит версию; уже заданную с «/» не трогаем).
+		if (!str_contains($model, '/'))
+		{
+			$model .= '/latest';
+		}
+
+		return $family . '://' . $folder . '/' . $model;
 	}
 
 	private function request(string $path, array $body): array
@@ -117,12 +125,22 @@ final class YandexProvider implements ProviderInterface
 		$raw = $http->post(self::API . $path, Json::encode($body, JSON_UNESCAPED_UNICODE));
 		$status = (int)$http->getStatus();
 
-		$decoded = is_string($raw) ? Json::decode($raw) : null;
-		$decoded = is_array($decoded) ? $decoded : [];
+		$decoded = [];
+		if (is_string($raw) && trim($raw) !== '')
+		{
+			try
+			{
+				$decoded = (array)Json::decode($raw);
+			}
+			catch (\Throwable)
+			{
+				// Не-JSON ответ (HTML-ошибка прокси, пустое тело) — покажем сырьё.
+			}
+		}
 
 		if ($status < 200 || $status >= 300)
 		{
-			$error = (string)($decoded['error'] ?? ($decoded['message'] ?? ($raw ?: "HTTP {$status}")));
+			$error = (string)($decoded['error']['message'] ?? ($decoded['message'] ?? ($raw ?: "HTTP {$status}")));
 			Logger::error('llm', "YandexGPT error (HTTP {$status}): " . mb_substr($error, 0, 300));
 
 			throw new LlmException("YandexGPT error (HTTP {$status}): " . mb_substr($error, 0, 300));

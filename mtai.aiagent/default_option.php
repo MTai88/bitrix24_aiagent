@@ -17,7 +17,7 @@ $mtai_aiagent_default_option = [
 	'llm_api_key' => '',                 // зашифровано
 	'llm_yandex_folder' => '',
 	'llm_embedding_provider' => 'auto',  // auto | provider | hash | off
-	'llm_embedding_model' => 'text-embedding-3-small',
+	'llm_embedding_model' => '',            // OpenAI: text-embedding-3-small; YandexGPT: text-search-query (пусто = дефолт провайдера)
 	'llm_temperature' => '0.2',
 	'llm_max_tokens' => '1500',
 	'llm_timeout' => '45',
