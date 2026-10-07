@@ -3,6 +3,7 @@
 namespace Mtai\Aiagent\Handler;
 
 use Bitrix\Main\Web\Json;
+use Mtai\Aiagent\Agent\ToolLoop;
 use Mtai\Aiagent\Bot\Manager;
 use Mtai\Aiagent\Chat\ToolExecutor;
 use Mtai\Aiagent\Chat\Tools;
@@ -97,81 +98,14 @@ final class ChatHandler
 
 		$messages = $this->buildMessages($key, $provider->supportsTools(), $userName, $userId);
 
-		if ($provider->supportsTools())
-		{
-			// Цикл function calling: модель запрашивает инструменты,
-			// мы возвращаем результаты, пока не получим финальный текст.
-			for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++)
-			{
-				$answer = $provider->chat($messages, $tools);
+		$result = ToolLoop::run($messages, $provider, $executor, $userId);
 
-				if ($answer['toolCalls'] === [])
-				{
-					return $this->finalizeReply($answer['content']);
-				}
-
-				// В историю — assistant с tool_calls (в OpenAI-формате).
-				$messages[] = [
-					'role' => 'assistant',
-					'content' => $answer['content'],
-					'tool_calls' => array_map(
-						static fn($call) => [
-							'id' => $call['id'],
-							'type' => 'function',
-							'function' => [
-								'name' => $call['name'],
-								'arguments' => Json::encode($call['arguments'], JSON_UNESCAPED_UNICODE),
-							],
-						],
-						$answer['toolCalls']
-					),
-				];
-
-				foreach ($answer['toolCalls'] as $call)
-				{
-					$result = $executor->execute($call['name'], (array)$call['arguments'], $userId);
-					$messages[] = [
-						'role' => 'tool',
-						'tool_call_id' => $call['id'],
-						'content' => Json::encode($result, JSON_UNESCAPED_UNICODE),
-					];
-				}
-			}
-
-			return 'Выполнил действия, но ответ не сформировался — уточните запрос, пожалуйста.';
-		}
-
-		// JSON-протокол: модель отвечает {"tool":..., "arguments":{...}}
-		// или {"answer": "..."} (описание инструментов уже в системном промте).
-		for ($i = 0; $i < self::MAX_TOOL_ITERATIONS; $i++)
-		{
-			$answer = $provider->chat($messages);
-			$content = trim((string)($answer['content'] ?? ''));
-
-			$command = self::parseJsonCommand($content);
-			if ($command === null || isset($command['answer']))
-			{
-				return $this->finalizeReply($command['answer'] ?? $content);
-			}
-
-			$name = (string)($command['tool'] ?? '');
-			$arguments = (array)($command['arguments'] ?? []);
-
-			$result = $executor->execute($name, $arguments, $userId);
-
-			$messages[] = ['role' => 'assistant', 'content' => $content];
-			$messages[] = [
-				'role' => 'user',
-				'content' => 'Результат инструмента ' . $name . ': '
-					. Json::encode($result, JSON_UNESCAPED_UNICODE)
-					. "\nПродолжай: следующий вызов инструмента тем же JSON-форматом или финальный ответ {\"answer\": \"...\"}.",
-			];
-		}
-
-		return 'Не смог завершить цепочку действий — попробуйте разбить запрос на шаги.';
+		return $result['error'] !== null
+			? 'AI-агент временно недоступен: ' . $result['error']
+			: $result['answer'];
 	}
 
-	private function buildMessages(string $key, bool $nativeTools, string $userName = '', int $userId = 0): array
+		private function buildMessages(string $key, bool $nativeTools, string $userName = '', int $userId = 0): array
 	{
 		$system = Config::get('chat_system_prompt', '');
 

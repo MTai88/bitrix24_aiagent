@@ -48,6 +48,12 @@ class GigaChatProvider extends OpenAiProvider
 		return false;
 	}
 
+	/** У GigaChat нет OpenAI-совместимого /embeddings — RAG работает на встроенном эмбеддере. */
+	public function supportsEmbedding(): bool
+	{
+		return false;
+	}
+
 	/** Основной вызов: при 401 сбрасываем токен и повторяем один раз. */
 	public function chat(array $messages, array $tools = [], array $options = []): array
 	{

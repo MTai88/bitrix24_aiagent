@@ -94,9 +94,17 @@ final class ToolLoop
 			$content = trim((string)($answer['content'] ?? ''));
 
 			$command = self::parseJsonCommand($content);
-			if ($command === null || isset($command['answer']))
+			if ($command === null)
 			{
-				return self::finalize($command['answer'] ?? $content);
+				return self::finalize($content);
+			}
+
+			// Модель ответила JSON-обёрткой — пользователю отдаём чистый
+			// текст ответа (в истории оставляем оригинал, чтобы диалог
+			// оставался консистентным для модели).
+			if (isset($command['answer']))
+			{
+				return self::finalize((string)$command['answer']);
 			}
 
 			$name = (string)($command['tool'] ?? '');
@@ -116,16 +124,21 @@ final class ToolLoop
 		return 'Не смог завершить цепочку действий — попробуйте разбить запрос на шаги.';
 	}
 
-	/** Извлечение JSON-объекта из ответа модели (в т.ч. из ```json …```). */
+	/**
+	 * Извлечение JSON-объекта из ответа модели (в т.ч. из ```json …```,
+	 * с восстановлением незакрытых скобок — LLM их регулярно роняет).
+	 */
 	public static function parseJsonCommand(string $content): ?array
 	{
 		$content = trim((string)preg_replace('/^```(?:json)?|```$/m', '', trim($content)));
 
-		if (preg_match('/\{.*\}/s', $content, $match) || preg_match('/\{[^{}]*\}/s', $content, $match))
+		if (preg_match('/\{.*\}/s', $content, $match) || preg_match('/\{.*/s', $content, $match))
 		{
+			$candidate = $match[0];
+
 			try
 			{
-				$decoded = Json::decode($match[0]);
+				$decoded = Json::decode($candidate);
 				if (is_array($decoded))
 				{
 					return $decoded;
@@ -134,9 +147,68 @@ final class ToolLoop
 			catch (\Throwable)
 			{
 			}
+
+			// Битый JSON (незакрытые скобки/кавычки): достаём answer
+			// или tool регуляркой, чтобы ответ не ушёл пользователю сырым.
+			if (preg_match('/"answer"\s*:\s*"((?:\\\\.|[^"\\\\])*)/s', $candidate, $m))
+			{
+				// Незакрытая кавычка захватывает хвост JSON — срезаем.
+				$answer = preg_replace('/}\s*$/', '', stripcslashes($m[1]));
+				if (trim($answer) !== '')
+				{
+					return ['answer' => $answer];
+				}
+			}
+
+			if (preg_match('/"tool"\s*:\s*"((?:\\\\.|[^"\\\\])*)/s', $candidate, $m))
+			{
+				return ['tool' => $m[1], 'arguments' => self::extractArguments($candidate)];
+			}
 		}
 
 		return null;
+	}
+
+	/** Аргументы инструмента из битого JSON: блок "arguments":{…} целиком. */
+	private static function extractArguments(string $candidate): array
+	{
+		if (!preg_match('/"arguments"\s*:\s*\{(.*)$/s', $candidate, $m))
+		{
+			return [];
+		}
+
+		// Балансируем скобки.
+		$depth = 1;
+		$out = '';
+		$length = mb_strlen($m[1]);
+		for ($i = 0; $i < $length; $i++)
+		{
+			$char = mb_substr($m[1], $i, 1);
+			if ($char === '{')
+			{
+				$depth++;
+			}
+			elseif ($char === '}')
+			{
+				$depth--;
+				if ($depth === 0)
+				{
+					break;
+				}
+			}
+			$out .= $char;
+		}
+
+		try
+		{
+			$decoded = Json::decode('{' . rtrim($out, ',') . '}');
+
+			return is_array($decoded) ? $decoded : [];
+		}
+		catch (\Throwable)
+		{
+			return [];
+		}
 	}
 
 	private static function finalize(?string $content): string
