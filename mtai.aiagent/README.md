@@ -185,7 +185,10 @@ docker compose exec php php local/modules/mtai.aiagent/cli/worker.php bot regist
   промте, ответ строго `{"tool": "...", "arguments": {...}}` или
   `{"answer": "..."}`.
 
-Инструменты (`Chat\Tools`):
+Инструменты — папка `lib/tools/<ИмяТула>/`: по папке на инструмент,
+автоподхват без регистрации (см. «Добавление своего инструмента» ниже).
+
+Инструменты (поставляются с модулем):
 
 | Инструмент | REST-методы |
 |------------|-------------|
@@ -222,6 +225,68 @@ docker compose exec php php local/modules/mtai.aiagent/cli/worker.php bot regist
 REST при этом ходит от владельца вебхука — но без guard-проверки действие
 не выполняется. То же действует в активности БП (параметр «ID пользователя»).
 Список разрешённых пользователей — опция (пусто = все сотрудники).
+
+### Добавление своего инструмента
+
+Новый инструмент = новая папка в `lib/tools/` — и он сразу доступен агенту
+(чат + активность БП), ничего регистрировать не нужно:
+
+```
+lib/tools/GetWeather/            ← PascalCase, любое имя
+├── config.php                   ← описание для LLM (JSON Schema)
+└── Tool.php                     ← класс с execute()
+```
+
+`config.php` возвращает массив:
+
+```php
+<?php
+return [
+    'name' => 'get_weather',     // имя тулса для LLM (snake_case)
+    'description' => 'Текущая погода в городе. Используй для вопросов о погоде.',
+    'parameters' => [            // JSON Schema параметров
+        'type' => 'object',
+        'properties' => [
+            'city' => ['type' => 'string', 'description' => 'город'],
+        ],
+        'required' => ['city'],
+    ],
+];
+```
+
+`Tool.php` — класс `Tool` с методом `execute(array $arguments, int $userId, Context $ctx): array`.
+Возвращайте данные для модели либо `['error' => 'причина']` — модель сама
+объяснит сотруднику. В `$ctx` — REST-клиент портала (`$ctx->restCall()`,
+`$ctx->restSafe()`) и константы CRM; права проверяйте через
+`AccessGuard::crmCanRead/Update/Add`. Результат пишите в журнал
+`Logger::info('tools', ...)` при необходимости.
+
+```php
+<?php
+namespace Mtai\Aiagent\Tools\GetWeather;
+
+use Mtai\Aiagent\Tools\Context;
+
+class Tool
+{
+    public function execute(array $args, int $userId, Context $ctx): array
+    {
+        $city = trim((string)($args['city'] ?? ''));
+        if ($city === '')
+        {
+            return ['error' => 'укажите город'];
+        }
+
+        // ... любой код: внешние API, REST портала, БД ...
+
+        return ['city' => $city, 'temperature' => '+17', 'condition' => 'ясно'];
+    }
+}
+```
+
+Правила: имя папки = последний компонент namespace; `name` в config —
+уникальное snake_case; папка без `config.php` или `Tool.php` молча
+пропускается (ошибка — в журнал, категория tools).
 
 ### Слэш-команды бота
 
@@ -267,6 +332,7 @@ REST при этом ходит от владельца вебхука — но 
 | Ключ памяти | например `{=Document:ID}` — контекст сохраняется между запусками активности с тем же ключом (несколько шагов одного диалога); пусто = одноразовый запрос |
 | ID пользователя | от чьего имени выполняются CRM-действия в режиме «Выполнить задачу» |
 | Поле документа для ответа | например `NAME` или `PROPERTY_123` — ответ сразу записывается в документ (пусто = не записывать) |
+| Модель | переопределение LLM-модели для этого узла (пусто = из настроек модуля). Примеры: `gpt-4o-mini`, `yandexgpt-lite/latest`, `GigaChat-Lite` |
 
 Результаты (доступны в последующих действиях и «Изменить переменные»):
 **Ответ агента** (Answer), **Ошибка выполнения** (ErrorMessage).

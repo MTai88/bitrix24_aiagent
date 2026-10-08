@@ -55,6 +55,8 @@ Loader::registerAutoLoadClasses(
 		'Mtai\\Aiagent\\Agent\\Runner' => 'lib/Agent/Runner.php',
 		'Mtai\\Aiagent\\Chat\\Markdown' => 'lib/Chat/Markdown.php',
 		'Mtai\\Aiagent\\Agent\\ToolLoop' => 'lib/Agent/ToolLoop.php',
+		'Mtai\\Aiagent\\Tools\\ToolRegistry' => 'lib/Tools/ToolRegistry.php',
+		'Mtai\\Aiagent\\Tools\\Context' => 'lib/Tools/Context.php',
 		'Mtai\\Aiagent\\Chat\\AccessGuard' => 'lib/Chat/AccessGuard.php',
 		'Mtai\\Aiagent\\Chat\\Tools' => 'lib/Chat/Tools.php',
 		'Mtai\\Aiagent\\Chat\\ToolExecutor' => 'lib/Chat/ToolExecutor.php',
