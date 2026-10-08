@@ -114,6 +114,14 @@ final class ToolLoop
 				return self::finalize((string)$command['answer']);
 			}
 
+			// Часть моделей (GigaChat-Max) шлёт вызов инструмента
+			// одноключевой формой {"<tool>": {...}} вместо
+			// {"tool": "<tool>", "arguments": {...}} — нормализуем.
+			if (!isset($command['tool']) && count($command) === 1 && is_array(reset($command)))
+			{
+				$command = ['tool' => (string)array_key_first($command), 'arguments' => reset($command)];
+			}
+
 			$name = (string)($command['tool'] ?? '');
 			$arguments = (array)($command['arguments'] ?? []);
 
