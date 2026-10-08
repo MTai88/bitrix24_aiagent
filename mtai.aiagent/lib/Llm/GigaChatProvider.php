@@ -49,10 +49,15 @@ class GigaChatProvider extends OpenAiProvider
 		return false;
 	}
 
-	/** У GigaChat нет OpenAI-совместимого /embeddings — RAG работает на встроенном эмбеддере. */
+	/**
+	 * Эмбеддинги доступны не на всех тарифах GigaChat API: модель указывается
+	 * в опции llm_embedding_model (актуальные: Embeddings, EmbeddingsGigaR;
+	 * на GIGACHAT_API_PERS без пакета API отвечает 402 Payment Required).
+	 * Опция пуста — RAG работает на встроенном эмбеддере.
+	 */
 	public function supportsEmbedding(): bool
 	{
-		return false;
+		return Config::get('llm_embedding_model', '') !== '';
 	}
 
 	/** Основной вызов: при 401 сбрасываем токен и повторяем один раз. */
