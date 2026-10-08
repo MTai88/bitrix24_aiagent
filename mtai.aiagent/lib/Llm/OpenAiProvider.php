@@ -116,9 +116,11 @@ class OpenAiProvider implements ProviderInterface
 
 		$vectors = array_values($byIndex);
 
-		foreach ($vectors as $vector)
+		// Нормировка на месте: foreach по значению отдаёт копию элемента —
+		// normalize(&$vector) менял бы копию, а не $vectors.
+		foreach ($vectors as $i => $vector)
 		{
-			self::normalize($vector);
+			self::normalize($vectors[$i]);
 		}
 
 		return $vectors;
