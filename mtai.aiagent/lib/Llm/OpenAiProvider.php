@@ -39,7 +39,7 @@ class OpenAiProvider implements ProviderInterface
 	{
 		$body = [
 			'model' => $options['model'] ?? Config::get('llm_model', 'gpt-4o-mini'),
-			'messages' => $messages,
+			'messages' => $this->prepareMessages($messages),
 			'temperature' => $options['temperature'] ?? Config::getFloat('llm_temperature', 0.2),
 		];
 
@@ -51,14 +51,43 @@ class OpenAiProvider implements ProviderInterface
 
 		if ($tools !== [])
 		{
-			$body['tools'] = $tools;
-			$body['tool_choice'] = 'auto';
+			$body += $this->toolRequestParams($tools);
 		}
 
 		$response = $this->request('/chat/completions', $body);
 		$choice = (array)($response['choices'][0] ?? []);
 		$message = (array)($choice['message'] ?? []);
 
+		$toolCalls = $this->parseToolCalls($message);
+
+		Logger::debug('llm', 'chat completion: ' . mb_substr((string)($message['content'] ?? ''), 0, 200));
+
+		return [
+			'content' => isset($message['content']) ? (string)$message['content'] : null,
+			'toolCalls' => $toolCalls,
+			'usage' => (array)($response['usage'] ?? []),
+			'finishReason' => (string)($choice['finish_reason'] ?? ''),
+		];
+	}
+
+	/**
+	 * Сообщения диалога перед отправкой — точка адаптации формата провайдера
+	 * (GigaChat переоборачивает tool_calls/role tool в свой формат).
+	 */
+	protected function prepareMessages(array $messages): array
+	{
+		return $messages;
+	}
+
+	/** Параметры запроса для инструментов: OpenAI-формат tools + tool_choice. */
+	protected function toolRequestParams(array $tools): array
+	{
+		return ['tools' => $tools, 'tool_choice' => 'auto'];
+	}
+
+	/** Вызовы инструментов из ответа модели — OpenAI: message.tool_calls. */
+	protected function parseToolCalls(array $message): array
+	{
 		$toolCalls = [];
 		foreach ((array)($message['tool_calls'] ?? []) as $call)
 		{
@@ -84,14 +113,7 @@ class OpenAiProvider implements ProviderInterface
 			];
 		}
 
-		Logger::debug('llm', 'chat completion: ' . mb_substr((string)($message['content'] ?? ''), 0, 200));
-
-		return [
-			'content' => isset($message['content']) ? (string)$message['content'] : null,
-			'toolCalls' => $toolCalls,
-			'usage' => (array)($response['usage'] ?? []),
-			'finishReason' => (string)($choice['finish_reason'] ?? ''),
-		];
+		return $toolCalls;
 	}
 
 	public function embed(array $texts): array

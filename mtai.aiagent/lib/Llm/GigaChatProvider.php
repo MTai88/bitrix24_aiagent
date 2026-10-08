@@ -23,8 +23,9 @@ use Mtai\Aiagent\Logger;
  * SSL-сертификаты российского CA: при ошибках проверки цепочки выключите
  * опцию «Проверять SSL» — она действует и на OAuth-эндпоинт.
  * Формат /api/v1/chat/completions совместим с OpenAI (наследует
- * OpenAiProvider); нативный function calling не используется — инструменты
- * работают через JSON-протокол.
+ * OpenAiProvider), кроме function calling: GigaChat ждёт functions/function_call
+ * и отвечает message.function_call — адаптация в toolRequestParams/
+ * parseToolCalls/prepareMessages.
  */
 class GigaChatProvider extends OpenAiProvider
 {
@@ -46,7 +47,7 @@ class GigaChatProvider extends OpenAiProvider
 
 	public function supportsTools(): bool
 	{
-		return false;
+		return true;
 	}
 
 	/**
@@ -65,7 +66,7 @@ class GigaChatProvider extends OpenAiProvider
 	{
 		try
 		{
-			return parent::chat($messages, [], $options);
+			return parent::chat($messages, $tools, $options);
 		}
 		catch (LlmException $e)
 		{
@@ -77,8 +78,111 @@ class GigaChatProvider extends OpenAiProvider
 			Logger::info('llm', 'GigaChat: 401, refreshing access token');
 			self::dropAccessToken();
 
-			return parent::chat($messages, [], $options);
+			return parent::chat($messages, $tools, $options);
 		}
+	}
+
+	/**
+	 * Нативный function calling у GigaChat v1 в СВОЁМ формате (не OpenAI):
+	 * запрос — functions + function_call, ответ — message.function_call с
+	 * аргументами объектом, результат — сообщение с ролью function.
+	 * functions_state_id не требуется: продолжение работает и без него.
+	 */
+	protected function prepareMessages(array $messages): array
+	{
+		$out = [];
+		foreach ($messages as $item)
+		{
+			$message = (array)$item;
+			$role = (string)($message['role'] ?? '');
+
+			if ($role === 'assistant' && isset($message['tool_calls']))
+			{
+				// OpenAI-форма (возможно несколько вызовов) → один function_call:
+				// GigaChat v1 умеет ровно один вызов на сообщение.
+				$calls = (array)$message['tool_calls'];
+				$first = (array)reset($calls);
+				$function = (array)($first['function'] ?? []);
+				$arguments = $function['arguments'] ?? [];
+				if (is_string($arguments))
+				{
+					try
+					{
+						$arguments = Json::decode($arguments);
+					}
+					catch (\Throwable)
+					{
+						$arguments = [];
+					}
+				}
+
+				$out[] = [
+					'role' => 'assistant',
+					'content' => (string)($message['content'] ?? ''),
+					'function_call' => [
+						'name' => (string)($function['name'] ?? ''),
+						'arguments' => (array)$arguments,
+					],
+				];
+				continue;
+			}
+
+			if ($role === 'tool')
+			{
+				$out[] = ['role' => 'function', 'content' => (string)($message['content'] ?? '')];
+				continue;
+			}
+
+			$out[] = $message;
+		}
+
+		return $out;
+	}
+
+	/** OpenAI tools {type:function, function:{…}} → GigaChat functions + function_call. */
+	protected function toolRequestParams(array $tools): array
+	{
+		$functions = [];
+		foreach ($tools as $tool)
+		{
+			$definition = (array)((array)$tool['function'] ?? $tool);
+			$functions[] = [
+				'name' => (string)($definition['name'] ?? ''),
+				'description' => (string)($definition['description'] ?? ''),
+				'parameters' => (array)($definition['parameters'] ?? ['type' => 'object', 'properties' => []]),
+			];
+		}
+
+		return ['functions' => $functions, 'function_call' => 'auto'];
+	}
+
+	/** Ответ: message.function_call (аргументы объектом) → единая форма toolCalls. */
+	protected function parseToolCalls(array $message): array
+	{
+		$call = (array)($message['function_call'] ?? []);
+		if ($call === [])
+		{
+			return [];
+		}
+
+		$arguments = $call['arguments'] ?? [];
+		if (is_string($arguments))
+		{
+			try
+			{
+				$arguments = Json::decode($arguments);
+			}
+			catch (\Throwable)
+			{
+				$arguments = ['_raw' => $arguments];
+			}
+		}
+
+		return [[
+			'id' => uniqid('call_', true),
+			'name' => (string)($call['name'] ?? ''),
+			'arguments' => (array)$arguments,
+		]];
 	}
 
 	public function embed(array $texts): array
