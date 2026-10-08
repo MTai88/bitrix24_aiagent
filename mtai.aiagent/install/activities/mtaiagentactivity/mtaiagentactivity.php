@@ -27,6 +27,7 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 	private const PARAM_MEMORY_KEY = 'MemoryKey';
 	private const PARAM_USER_ID = 'UserId';
 	private const PARAM_ANSWER_FIELD = 'AnswerField';
+	private const PARAM_MODEL = 'Model';
 
 	public function __construct(string $name)
 	{
@@ -40,6 +41,7 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 			self::PARAM_MEMORY_KEY => null,
 			self::PARAM_USER_ID => null,
 			self::PARAM_ANSWER_FIELD => null,
+			self::PARAM_MODEL => null,
 
 			// Результаты
 			'Answer' => null,
@@ -116,6 +118,12 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 				'Type' => FieldType::STRING,
 				'Default' => '',
 			],
+			self::PARAM_MODEL => [
+				'Name' => Loc::getMessage('MTAI_AIAGENT_ACTIVITY_PARAM_MODEL'),
+				'FieldName' => self::PARAM_MODEL,
+				'Type' => FieldType::STRING,
+				'Default' => '',
+			],
 		];
 	}
 
@@ -161,6 +169,7 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 			(string)$this->{self::PARAM_SYSTEM_PROMPT},
 			(string)$this->{self::PARAM_MEMORY_KEY},
 			$userId,
+			(string)$this->{self::PARAM_MODEL},
 		);
 
 		$this->Answer = $result['answer'] !== '' ? $result['answer'] : null;

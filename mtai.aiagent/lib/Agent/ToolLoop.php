@@ -25,16 +25,23 @@ final class ToolLoop
 	 * @param int $userId от чьего имени выполняются действия в CRM
 	 * @return array{answer: string, error: ?string}
 	 */
-	public static function run(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId): array
-	{
+	public static function run(
+		array $messages,
+		ProviderInterface $provider,
+		ToolExecutor $executor,
+		int $userId,
+		string $model = '',
+	): array {
+		$options = trim($model) !== '' ? ['model' => trim($model)] : [];
+
 		try
 		{
 			if ($provider->supportsTools())
 			{
-				return ['answer' => self::runNative($messages, $provider, $executor, $userId), 'error' => null];
+				return ['answer' => self::runNative($messages, $provider, $executor, $userId, $options), 'error' => null];
 			}
 
-			return ['answer' => self::runJsonProtocol($messages, $provider, $executor, $userId), 'error' => null];
+			return ['answer' => self::runJsonProtocol($messages, $provider, $executor, $userId, $options), 'error' => null];
 		}
 		catch (\Mtai\Aiagent\LlmException $e)
 		{
@@ -42,13 +49,13 @@ final class ToolLoop
 		}
 	}
 
-	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId): string
+	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = []): string
 	{
 		$tools = Tools::definitions();
 
 		for ($i = 0; $i < self::MAX_ITERATIONS; $i++)
 		{
-			$answer = $provider->chat($messages, $tools);
+			$answer = $provider->chat($messages, $tools, $options);
 
 			if ($answer['toolCalls'] === [])
 			{
@@ -86,11 +93,11 @@ final class ToolLoop
 		return 'Выполнил действия, но ответ не сформировался — уточните запрос, пожалуйста.';
 	}
 
-	private static function runJsonProtocol(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId): string
+	private static function runJsonProtocol(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = []): string
 	{
 		for ($i = 0; $i < self::MAX_ITERATIONS; $i++)
 		{
-			$answer = $provider->chat($messages);
+			$answer = $provider->chat($messages, [], $options);
 			$content = trim((string)($answer['content'] ?? ''));
 
 			$command = self::parseJsonCommand($content);

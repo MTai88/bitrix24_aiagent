@@ -43,7 +43,7 @@ final class YandexProvider implements ProviderInterface
 	public function chat(array $messages, array $tools = [], array $options = []): array
 	{
 		$body = [
-			'modelUri' => $this->modelUri('gpt', $options['model'] ?? null),
+			'modelUri' => $this->modelUri('gpt', $this->nonEmpty($options['model'] ?? null)),
 			'completionOptions' => [
 				'temperature' => $options['temperature'] ?? Config::getFloat('llm_temperature', 0.2),
 				'maxTokens' => (int)($options['maxTokens'] ?? Config::getInt('llm_max_tokens', 1500)),
@@ -78,7 +78,7 @@ final class YandexProvider implements ProviderInterface
 		foreach ($texts as $text)
 		{
 			$response = $this->request('/textEmbedding', [
-				'modelUri' => $this->modelUri('emb', Config::get('llm_embedding_model', 'text-search-query')),
+				'modelUri' => $this->modelUri('emb', $this->nonEmpty(Config::get('llm_embedding_model')) ?? 'text-search-query'),
 				'text' => (string)$text,
 			]);
 
@@ -88,6 +88,13 @@ final class YandexProvider implements ProviderInterface
 		}
 
 		return $vectors;
+	}
+
+	private static function nonEmpty(?string $value): ?string
+	{
+		$value = trim((string)$value);
+
+		return $value !== '' ? $value : null;
 	}
 
 	private function modelUri(string $family, ?string $model): string

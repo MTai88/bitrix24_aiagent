@@ -9,6 +9,8 @@ $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_SYSTEM_PROMPT'] = 'System prompt (overrides m
 $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MEMORY_KEY'] = 'Dialog memory key';
 $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_USER_ID'] = 'User ID (on whose behalf CRM actions run)';
 $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_ANSWER_FIELD'] = 'Document field for the answer (empty = do not write)';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MODEL'] = 'Model (empty = module settings)';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MODEL_HINT'] = 'Overrides the LLM model for this node. Examples: gpt-4o-mini, yandexgpt-lite/latest, GigaChat-Pro.';
 $MESS['MTAI_AIAGENT_ACTIVITY_ERROR_FIELD_WRITE'] = 'Cannot write the answer to the document field';
 $MESS['MTAI_AIAGENT_ACTIVITY_ERROR_QUESTION_EMPTY'] = 'AI agent question is empty';
 $MESS['MTAI_AIAGENT_ACTIVITY_ERROR_MODULE'] = 'Module mtai.aiagent is not installed';

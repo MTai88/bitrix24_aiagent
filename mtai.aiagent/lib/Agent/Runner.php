@@ -49,6 +49,7 @@ final class Runner
 		?string $systemPrompt = null,
 		string $memoryKey = '',
 		int $userId = 0,
+		string $model = '',
 	): array {
 		$question = trim($question);
 		if ($question === '')
@@ -67,9 +68,9 @@ final class Runner
 
 		$result = match ($mode)
 		{
-			self::MODE_AGENT => $this->runAgent($question, $systemPrompt, $key, $memory, $userId),
-			self::MODE_DIRECT => $this->runDirect($question, $systemPrompt, $key, $memory),
-			default => $this->runAssistant($question, $systemPrompt, $key, $memory),
+			self::MODE_AGENT => $this->runAgent($question, $systemPrompt, $key, $memory, $userId, $model),
+			self::MODE_DIRECT => $this->runDirect($question, $systemPrompt, $key, $memory, $model),
+			default => $this->runAssistant($question, $systemPrompt, $key, $memory, $model),
 		};
 
 		if ($result['error'] === null && $key !== '')
@@ -81,7 +82,7 @@ final class Runner
 	}
 
 	/** RAG-ответ по базе знаний. */
-	private function runAssistant(string $question, ?string $systemPrompt, string $key, Store $memory): array
+	private function runAssistant(string $question, ?string $systemPrompt, string $key, Store $memory, string $model = ''): array
 	{
 		$contexts = (new VectorIndex())->search($question);
 
@@ -129,7 +130,7 @@ final class Runner
 
 		try
 		{
-			$answer = Factory::create()->chat($messages);
+			$answer = Factory::create()->chat($messages, [], $this->modelOptions($model));
 			Logger::info('bp', 'assistant answer: ' . mb_substr((string)($answer['content'] ?? ''), 0, 200));
 
 			return ['answer' => trim((string)($answer['content'] ?? '')), 'error' => null];
@@ -142,8 +143,16 @@ final class Runner
 		}
 	}
 
+	/** Опции чата с переопределением модели (пусто/пробелы = модель из настроек модуля). */
+	private function modelOptions(string $model): array
+	{
+		$model = trim($model);
+
+		return $model !== '' ? ['model' => $model] : [];
+	}
+
 	/** Прямой запрос к модели: без базы знаний и инструментов. */
-	private function runDirect(string $question, ?string $systemPrompt, string $key, Store $memory): array
+	private function runDirect(string $question, ?string $systemPrompt, string $key, Store $memory, string $model = ''): array
 	{
 		$system = trim((string)$systemPrompt);
 		if ($system === '')
@@ -177,7 +186,7 @@ final class Runner
 
 		try
 		{
-			$answer = Factory::create()->chat($messages);
+			$answer = Factory::create()->chat($messages, [], $this->modelOptions($model));
 			Logger::info('bp', 'direct answer: ' . mb_substr((string)($answer['content'] ?? ''), 0, 200));
 
 			return ['answer' => trim((string)($answer['content'] ?? '')), 'error' => null];
@@ -191,7 +200,7 @@ final class Runner
 	}
 
 	/** Выполнение задачи инструментами CRM. */
-	private function runAgent(string $task, ?string $systemPrompt, string $key, Store $memory, int $userId): array
+	private function runAgent(string $task, ?string $systemPrompt, string $key, Store $memory, int $userId, string $model = ''): array
 	{
 		$system = trim((string)$systemPrompt);
 		if ($system === '')
@@ -221,7 +230,7 @@ final class Runner
 			$messages[] = ['role' => 'user', 'content' => $task];
 		}
 
-		$result = ToolLoop::run($messages, Factory::create(), new ToolExecutor(), $userId);
+		$result = ToolLoop::run($messages, Factory::create(), new ToolExecutor(), $userId, $model);
 		if ($result['error'] !== null)
 		{
 			Logger::error('bp', 'agent failed: ' . $result['error']);

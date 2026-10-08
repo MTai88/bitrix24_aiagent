@@ -9,6 +9,8 @@ $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_SYSTEM_PROMPT'] = 'Системный про�
 $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MEMORY_KEY'] = 'Ключ памяти диалога';
 $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_USER_ID'] = 'ID пользователя (от чьего имени действия в CRM)';
 $MESS['MTAI_AIAGENT_ACTIVITY_PARAM_ANSWER_FIELD'] = 'Поле документа для ответа (пусто = не записывать)';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MODEL'] = 'Модель (пусто = из настроек модуля)';
+$MESS['MTAI_AIAGENT_ACTIVITY_PARAM_MODEL_HINT'] = 'Переопределяет модель LLM для этого узла. Примеры: gpt-4o-mini, yandexgpt-lite/latest, GigaChat-Pro.';
 $MESS['MTAI_AIAGENT_ACTIVITY_ERROR_FIELD_WRITE'] = 'Не удалось записать ответ в поле документа';
 $MESS['MTAI_AIAGENT_ACTIVITY_ERROR_QUESTION_EMPTY'] = 'Не заполнен вопрос к AI-агенту';
 $MESS['MTAI_AIAGENT_ACTIVITY_ERROR_MODULE'] = 'Модуль mtai.aiagent не установлен';
