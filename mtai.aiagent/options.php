@@ -103,7 +103,7 @@ if ($isPost && check_bitrix_sessid() && $postAction === 'save')
 		'transfer_user_id', 'ol_work_hours', 'ol_work_days', 'ol_offhours_text',
 		'chat_system_prompt', 'chat_allowed_users', 'history_depth',
 		'portal_url', 'app_client_id', 'bot_code', 'bot_name',
-		'rest_auth_mode', 'webhook_user_id',
+		'rest_auth_mode', 'webhook_user_id', 'gigachat_scope',
 		'log_level', 'notify_admin_user',
 	];
 
@@ -197,7 +197,7 @@ $tabControl->Begin();
 	<tr>
 		<td width="40%"><?= GetMessage('MTAI_AIAGENT_LLM_PROVIDER') ?></td>
 		<td>
-			<select name="llm_provider">
+			<select name="llm_provider" onchange="document.getElementById('tr_gigachat_scope').style.display=(this.value==='gigachat'?'':'none')">
 				<?php
 				$titles = [
 					'openai' => 'OpenAI / OpenAI-совместимый',
@@ -232,6 +232,13 @@ $tabControl->Begin();
 	<tr>
 		<td><?= GetMessage('MTAI_AIAGENT_LLM_YANDEX_FOLDER') ?></td>
 		<td><input type="text" size="30" name="llm_yandex_folder" value="<?= htmlspecialcharsbx(Config::get('llm_yandex_folder')) ?>"></td>
+	</tr>
+	<tr id="tr_gigachat_scope" style="display:<?= Config::get('llm_provider') === 'gigachat' ? '' : 'none' ?>">
+		<td><?= GetMessage('MTAI_AIAGENT_GIGACHAT_SCOPE') ?></td>
+		<td>
+			<input type="text" size="30" name="gigachat_scope" value="<?= htmlspecialcharsbx(Config::get('gigachat_scope', \Mtai\Aiagent\Llm\GigaChatProvider::DEFAULT_SCOPE)) ?>" placeholder="<?= \Mtai\Aiagent\Llm\GigaChatProvider::DEFAULT_SCOPE ?>">
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_GIGACHAT_SCOPE_HINT') ?></div>
+		</td>
 	</tr>
 	<tr>
 		<td><?= GetMessage('MTAI_AIAGENT_LLM_PARAMS') ?></td>

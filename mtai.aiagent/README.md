@@ -352,7 +352,7 @@ class Tool
 |-----------|------|-------------|
 | OpenAI / OpenAI-совместимый | API-ключ | OpenAI, OpenRouter, vLLM/Ollama/LiteLLM — меняйте «Базовый URL»; нативный function calling |
 | YandexGPT | API-ключ + folder id | эмбеддинги `text-search/latest`; инструменты через JSON-протокол |
-| GigaChat | authorization key в поле API-ключ | Base64(client_id:client_secret) из кабинета GigaChat API keys — бессрочный; access-токен (~30 мин) модуль получает и обновляет сам (OAuth Сбера + кеш + ретрай по 401); при ошибках SSL отключите проверку сертификата |
+| GigaChat | authorization key + scope | Base64(client_id:client_secret) из кабинета; access-токен (~30 мин) модуль получает и обновляет сам; **scope** задаётся в настройках (по умолчанию `GIGACHAT_API_PERS`, поддерживается B2B/CORP — должен соответствовать ключу); при ошибках SSL отключите проверку сертификата |
 | Мок | — | эхо-ответы без внешних вызовов; для проверки конвейера |
 
 Эмбеддинги базы знаний (опция «Режим»):

@@ -23,6 +23,7 @@ $mtai_aiagent_default_option = [
 	'llm_timeout' => '45',
 	'llm_ssl_verify' => 'Y',
 	'gigachat_token_expires' => '0',  // кеш access-токена GigaChat (сам токен — секрет)
+	'gigachat_scope' => 'GIGACHAT_API_PERS', // scope OAuth-запроса GigaChat (PERS/B2B/API)
 
 	// ---------- RAG ----------
 	'rag_top_k' => '5',

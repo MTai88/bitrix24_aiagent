@@ -31,6 +31,7 @@ class GigaChatProvider extends OpenAiProvider
 	public const DEFAULT_BASE_URL = 'https://gigachat.devices.sberbank.ru/api/v1';
 
 	private const OAUTH_URL = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
+	public const DEFAULT_SCOPE = 'GIGACHAT_API_PERS';
 	private const TOKEN_EXPIRY_GUARD = 120; // секунд запаса до истечения токена
 
 	public static function code(): string
@@ -135,7 +136,8 @@ class GigaChatProvider extends OpenAiProvider
 			$http->disableSslVerification();
 		}
 
-		$raw = $http->post(self::OAUTH_URL, 'scope=' . urlencode('GIGACHAT_API_PERS'));
+		$scope = trim(Config::get('gigachat_scope', '')) ?: self::DEFAULT_SCOPE;
+		$raw = $http->post(self::OAUTH_URL, 'scope=' . urlencode($scope));
 		$status = (int)$http->getStatus();
 
 		$decoded = is_string($raw) ? (array)Json::decode($raw) : [];
