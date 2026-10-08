@@ -192,7 +192,7 @@ docker compose exec php php local/modules/mtai.aiagent/cli/worker.php bot regist
 
 | Инструмент | REST-методы |
 |------------|-------------|
-| `crm_find_entities` | `crm.item.list` (lead=1, deal=2, contact=3, company=4) |
+| `crm_find_entities` | `crm.item.list` — по названию, стадии сделки (`stage_id`/`stage_semantic` open/won/lost), сумме (мин/макс), ответственному (имя→ID), дате создания (от/до), воронке (`category_id`/название, «Общая»=0), связанным компании/контакту (ID или название; контакт — по имени, фамилии и «Имя Фамилия»); критерии комбинируются (И) |
 | `crm_create_entity` | `crm.item.add` (+ автопоиск/создание контакта) |
 | `crm_update_entity` | `crm.item.update` |
 | `crm_create_task` | `tasks.task.add` (+ `UF_CRM_TASK` привязка `L_/D_/C_/CO_`) |
