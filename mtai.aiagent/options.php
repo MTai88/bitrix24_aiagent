@@ -197,12 +197,12 @@ $tabControl->Begin();
 	<tr>
 		<td width="40%"><?= GetMessage('MTAI_AIAGENT_LLM_PROVIDER') ?></td>
 		<td>
-			<select name="llm_provider" onchange="document.getElementById('tr_gigachat_scope').style.display=(this.value==='gigachat'?'':'none')">
+			<select name="llm_provider" onchange="document.getElementById('tr_gigachat_scope').style.display=(this.value==='gigachat'?'':'none');document.getElementById('tr_yandex_folder').style.display=(this.value==='yandex'?'':'none')">
 				<?php
 				$titles = [
 					'openai' => 'OpenAI / OpenAI-совместимый',
 					'yandex' => 'YandexGPT',
-					'gigachat' => 'GigaChat (экспериментально)',
+					'gigachat' => 'GigaChat',
 					'mock' => GetMessage('MTAI_AIAGENT_PROVIDER_MOCK'),
 				];
 				$current = Config::get('llm_provider', 'mock');
@@ -229,7 +229,7 @@ $tabControl->Begin();
 			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_LLM_API_KEY_HINT') ?></div>
 		</td>
 	</tr>
-	<tr>
+	<tr id="tr_yandex_folder" style="display:<?= Config::get('llm_provider') === 'yandex' ? '' : 'none' ?>">
 		<td><?= GetMessage('MTAI_AIAGENT_LLM_YANDEX_FOLDER') ?></td>
 		<td><input type="text" size="30" name="llm_yandex_folder" value="<?= htmlspecialcharsbx(Config::get('llm_yandex_folder')) ?>"></td>
 	</tr>
