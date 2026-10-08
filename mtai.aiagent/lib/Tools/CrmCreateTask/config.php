@@ -5,13 +5,15 @@
 
 return [
 	'name' => 'crm_create_task',
-	'description' => 'Задача с привязкой к сущности CRM (UF_CRM_TASK). '
-		. 'entity_type/entity_id можно не указывать — задача без привязки. '
-		. 'Для привязки нужно право чтения сущности.',
+	'description' => 'Создать новую задачу: заголовок, срок, описание, исполнитель. '
+		. 'Используй, когда просят «поставить задачу», «создать задачу», «назначить задачу», «напомнить что-то». '
+		. 'Опционально привязывается к сущности CRM (сделка/контакт/компания/лид) через entity_type/entity_id — '
+		. 'ID возьми из результата crm_find_entities, а не придумывай. '
+		. 'Для привязки нужно право чтения сущности; без неё задача создастся без привязки.',
 	'parameters' => [
 		'type' => 'object',
 		'properties' => [
-			'title' => ['type' => 'string'],
+			'title' => ['type' => 'string', 'description' => 'заголовок задачи'],
 			'deadline' => ['type' => 'string', 'description' => 'срок, формат YYYY-MM-DD или YYYY-MM-DD HH:MM'],
 			'description' => ['type' => 'string'],
 			'entity_type' => ['type' => 'string', 'enum' => ['lead', 'deal', 'contact', 'company']],
