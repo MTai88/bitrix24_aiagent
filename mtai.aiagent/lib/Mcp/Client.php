@@ -263,9 +263,20 @@ final class Client
 			$this->sessionId = $sessionHeader;
 		}
 
-		if ($raw === false || $raw === '')
+		if ($raw === false)
 		{
 			throw new McpException("MCP {$method}: HTTP-запрос не выполнен (status {$status})");
+		}
+		if ($raw === '')
+		{
+			// Уведомления (notifications/*) серверы подтверждают пустым
+			// 202 Accepted — это норма, а не сбой транспорта.
+			if ($status >= 200 && $status < 300)
+			{
+				return [];
+			}
+
+			throw new McpException("MCP {$method}: пустой ответ сервера (HTTP {$status})");
 		}
 
 		$contentType = (string)$http->getHeaders()->get('Content-Type');

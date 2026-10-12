@@ -53,7 +53,7 @@ $MESS['MTAI_AIAGENT_SECRET_STORED'] = '● задан, введите новый
 $MESS['MTAI_AIAGENT_SECRET_EMPTY'] = 'не задан';
 
 $MESS['MTAI_AIAGENT_MCP_ENABLED'] = 'Включить MCP';
-$MESS['MTAI_AIAGENT_MCP_ENABLED_HINT'] = 'Мастер-выключатель: гасит инструменты MCP в активностях бизнес-процессов. Транспорт — streamable HTTP (JSON-RPC 2.0), авторизация — Bearer API-ключ. Инструменты MCP доступны агенту в режиме «Выполнить задачу».';
+$MESS['MTAI_AIAGENT_MCP_ENABLED_HINT'] = 'Мастер-выключатель: гасит инструменты MCP в чатах сотрудников с ботом и в активностях бизнес-процессов (открытые линии клиентов — без изменений: там только RAG по базе знаний). Транспорт — streamable HTTP (JSON-RPC 2.0), авторизация — Bearer API-ключ. Инструменты MCP доступны агенту в режиме «Выполнить задачу».';
 $MESS['MTAI_AIAGENT_MCP_HEAD'] = 'Серверы';
 $MESS['MTAI_AIAGENT_MCP_COL_NAME'] = 'Имя';
 $MESS['MTAI_AIAGENT_MCP_COL_URL'] = 'URL (конечная точка MCP)';

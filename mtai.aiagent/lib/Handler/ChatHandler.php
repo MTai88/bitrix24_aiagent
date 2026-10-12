@@ -93,19 +93,41 @@ final class ChatHandler
 	private function converse(string $key, string $text, int $userId, string $userName = ''): string
 	{
 		$provider = Factory::create();
-		$executor = new ToolExecutor($this->rest);
-		$tools = Tools::definitions();
 
-		$messages = $this->buildMessages($key, $provider->supportsTools(), $userName, $userId);
+		// MCP: внешние инструменты из настроек модуля. Только личные чаты
+		// сотрудников — открытые линии клиентов остаются строго на RAG по
+		// базе знаний (OpenLineHandler MCP не получает).
+		$mcp = $this->mcpManager();
+		if ($mcp !== null)
+		{
+			Logger::info('chat', 'MCP: серверы ' . implode(', ', array_column(\Mtai\Aiagent\Mcp\ServerConfig::moduleServers(true), 'name')));
+		}
 
-		$result = ToolLoop::run($messages, $provider, $executor, $userId);
+		$executor = new ToolExecutor($this->rest, $mcp);
+
+		$messages = $this->buildMessages($key, $provider->supportsTools(), $userName, $userId, $mcp);
+
+		$result = ToolLoop::run($messages, $provider, $executor, $userId, '', $mcp);
 
 		return $result['error'] !== null
 			? 'AI-агент временно недоступен: ' . $result['error']
 			: $result['answer'];
 	}
 
-		private function buildMessages(string $key, bool $nativeTools, string $userName = '', int $userId = 0): array
+	/** Агрегатор MCP по настройкам модуля (null, если выключено или пусто). */
+	private function mcpManager(): ?\Mtai\Aiagent\Mcp\Manager
+	{
+		if (!Config::isEnabled('mcp_enabled'))
+		{
+			return null;
+		}
+
+		$servers = \Mtai\Aiagent\Mcp\ServerConfig::moduleServers(true);
+
+		return $servers === [] ? null : new \Mtai\Aiagent\Mcp\Manager($servers);
+	}
+
+	private function buildMessages(string $key, bool $nativeTools, string $userName = '', int $userId = 0, ?\Mtai\Aiagent\Mcp\Manager $mcp = null): array
 	{
 		$system = Config::get('chat_system_prompt', '');
 
@@ -138,7 +160,7 @@ final class ChatHandler
 
 		if (!$nativeTools)
 		{
-			$system .= "\n\n" . $this->jsonProtocolPrompt();
+			$system .= "\n\n" . $this->jsonProtocolPrompt($mcp);
 		}
 
 		$messages = [['role' => 'system', 'content' => $system]];
@@ -157,10 +179,19 @@ final class ChatHandler
 		return $days[$isoNumber] ?? '';
 	}
 
-	private function jsonProtocolPrompt(): string
+	private function jsonProtocolPrompt(?\Mtai\Aiagent\Mcp\Manager $mcp = null): string
 	{
-		return "Инструменты, доступные тебе:\n"
-			. Tools::forPrompt()
+		$prompt = "Инструменты, доступные тебе:\n" . Tools::forPrompt();
+		if ($mcp !== null)
+		{
+			$mcpPrompt = $mcp->forPrompt();
+			if ($mcpPrompt !== '')
+			{
+				$prompt .= "\n\nИнструменты внешних MCP-серверов:\n" . $mcpPrompt;
+			}
+		}
+
+		return $prompt
 			. "\n\nОтвечай СТРОГО одним JSON-объектом без markdown-обёрток:\n"
 			. "- для вызова инструмента: {\"tool\": \"имя\", \"arguments\": {…}}\n"
 			. "- для финального ответа пользователю: {\"answer\": \"текст\"}\n"

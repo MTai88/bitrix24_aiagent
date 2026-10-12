@@ -53,7 +53,7 @@ $MESS['MTAI_AIAGENT_SECRET_STORED'] = '● set, type a new one to replace';
 $MESS['MTAI_AIAGENT_SECRET_EMPTY'] = 'not set';
 
 $MESS['MTAI_AIAGENT_MCP_ENABLED'] = 'Enable MCP';
-$MESS['MTAI_AIAGENT_MCP_ENABLED_HINT'] = 'Master switch: disables MCP tools in business process activities. Transport: streamable HTTP (JSON-RPC 2.0), authorization: Bearer API key. MCP tools are available to the agent in "Execute task" mode.';
+$MESS['MTAI_AIAGENT_MCP_ENABLED_HINT'] = 'Master switch: disables MCP tools in employee chats with the bot and in business process activities (client open lines stay unchanged: RAG over the knowledge base only). Transport: streamable HTTP (JSON-RPC 2.0), authorization: Bearer API key. MCP tools are available to the agent in "Execute task" mode.';
 $MESS['MTAI_AIAGENT_MCP_HEAD'] = 'Servers';
 $MESS['MTAI_AIAGENT_MCP_COL_NAME'] = 'Name';
 $MESS['MTAI_AIAGENT_MCP_COL_URL'] = 'URL (MCP endpoint)';
