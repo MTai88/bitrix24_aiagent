@@ -26,8 +26,8 @@ $mtai_aiagent_default_option = [
 	'gigachat_scope' => 'GIGACHAT_API_PERS', // scope OAuth-запроса GigaChat (PERS/B2B/API)
 
 	// ---------- MCP (Model Context Protocol) ----------
-	'mcp_enabled' => 'N',                // мастер-выключатель инструментов MCP
-	'mcp_servers' => '',                 // JSON: [{name,url,api_key(enc1:),enabled}]
+	'mcp_enabled' => 'N',                // «Включить в чате»: MCP в чатах с ботом
+	'mcp_servers' => '',                 // JSON: [{name,url,api_key(enc1:),enabled}] (enabled = галочка «в чате»; активности БП выбирают серверы своим параметром)
 
 	// ---------- RAG ----------
 	'rag_top_k' => '5',

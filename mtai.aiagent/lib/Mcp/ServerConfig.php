@@ -124,22 +124,78 @@ final class ServerConfig
 	}
 
 	/**
-	 * Итоговый список серверов для запуска активности: мастер-выключатель
-	 * mcp_enabled гасит весь MCP; далее включённые серверы модуля +
-	 * серверы, заданные в самой активности.
+	 * Серверы для чата сотрудников: мастер-выключатель «Включить в чате»
+	 * (mcp_enabled) + галочки «Вкл.» у серверов. Активности БП этот
+	 * режим не касается — там серверы выбираются параметром активности.
 	 * @return array<int, array{name: string, url: string, api_key: string}>
 	 */
-	public static function serversForRun(string $activityRaw): array
+	public static function serversForChat(): array
 	{
 		if (!Config::isEnabled('mcp_enabled'))
 		{
 			return [];
 		}
 
-		return self::unique(array_merge(
-			self::moduleServers(true),
-			self::parseRaw($activityRaw)
-		));
+		return self::moduleServers(true);
+	}
+
+	/**
+	 * Серверы для запуска активности БП по выбору дизайнера: имена из
+	 * параметра-мультиселекта резолвятся в добавленные серверы модуля
+	 * (галочка «Вкл.» — чатовая, здесь не учитывается; мастер-выключатель
+	 * чата тоже). Строка (шаблоны старого текстового поля) разбирается
+	 * через parseRaw — обратная совместимость со старыми шаблонами.
+	 * Не найденные имена пропускаются с записью в журнал.
+	 * @param string|array $selection выбранные имена серверов
+	 * @return array<int, array{name: string, url: string, api_key: string}>
+	 */
+	public static function serversForActivity(string|array $selection): array
+	{
+		$result = [];
+
+		// Строка — старое текстовое поле активности (обратная совместимость).
+		if (is_string($selection))
+		{
+			$raw = trim($selection);
+			if ($raw !== '')
+			{
+				$result = self::parseRaw($raw);
+			}
+			$selection = [];
+		}
+
+		$selectedNames = [];
+		foreach ($selection as $item)
+		{
+			$name = trim((string)$item);
+			if ($name !== '')
+			{
+				$selectedNames[] = $name;
+			}
+		}
+
+		if ($selectedNames !== [])
+		{
+			$all = self::moduleServers(false);
+			foreach ($selectedNames as $name)
+			{
+				$found = false;
+				foreach ($all as $server)
+				{
+					if ($server['name'] === $name)
+					{
+						$result[] = $server;
+						$found = true;
+					}
+				}
+				if (!$found)
+				{
+					Logger::warn('mcp', "Активность БП: выбранный сервер «{$name}» не найден в настройках модуля — пропущен");
+				}
+			}
+		}
+
+		return self::unique($result);
 	}
 
 	/**

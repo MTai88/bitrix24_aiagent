@@ -48,10 +48,12 @@ try
 	{
 		case 'status':
 			Client::resetCache();
-			$rows = (new \Mtai\Aiagent\Mcp\Manager(ServerConfig::moduleServers(true)))->status();
+			// Все добавленные серверы — активности БП могут использовать
+			// любой, не только отмеченные «в чате».
+			$rows = (new \Mtai\Aiagent\Mcp\Manager(ServerConfig::moduleServers(false)))->status();
 			if ($rows === [])
 			{
-				$out('Нет включённых серверов (Настройки → AI-агент → вкладка MCP).');
+				$out('Нет добавленных серверов (Настройки → AI-агент → вкладка MCP).');
 				break;
 			}
 			foreach ($rows as $row)

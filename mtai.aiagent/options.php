@@ -76,10 +76,12 @@ if ($isPost && check_bitrix_sessid() && $postAction !== '' && $postAction !== 's
 				break;
 			case 'mcp_test':
 				// Проверка сохранённых серверов (не данных формы): handshake
-				// + количество инструментов по каждому включённому серверу.
+				// + количество инструментов по каждому добавленному серверу.
+				// Проверяем все, а не только «в чате» — активности могут
+				// использовать любой из добавленных.
 				\Mtai\Aiagent\Mcp\Client::resetCache();
 				$status = (new \Mtai\Aiagent\Mcp\Manager(
-					\Mtai\Aiagent\Mcp\ServerConfig::moduleServers(true)
+					\Mtai\Aiagent\Mcp\ServerConfig::moduleServers(false)
 				))->status();
 				$lines = [];
 				foreach ($status as $row)

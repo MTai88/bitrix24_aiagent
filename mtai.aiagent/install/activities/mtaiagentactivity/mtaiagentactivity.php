@@ -129,11 +129,35 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 			self::PARAM_MCP_SERVERS => [
 				'Name' => Loc::getMessage('MTAI_AIAGENT_ACTIVITY_PARAM_MCP_SERVERS'),
 				'FieldName' => self::PARAM_MCP_SERVERS,
-				'Type' => FieldType::TEXT,
-				'Default' => '',
+				'Type' => FieldType::SELECT,
+				'Multiple' => true,
+				'Options' => self::mcpServerOptions(),
+				'Default' => [],
 				'Description' => Loc::getMessage('MTAI_AIAGENT_ACTIVITY_PARAM_MCP_SERVERS_HINT'),
 			],
 		];
+	}
+
+	/**
+	 * Список MCP-серверов из настроек модуля для параметра-мультиселекта.
+	 * По умолчанию ничего не выбрано — MCP в активности выключены, дизайнер
+	 * включает конкретные серверы для конкретного узла.
+	 * @return array<string, string> имя сервера => подпись опции
+	 */
+	private static function mcpServerOptions(): array
+	{
+		if (!\Bitrix\Main\Loader::includeModule('mtai.aiagent'))
+		{
+			return [];
+		}
+
+		$options = [];
+		foreach (\Mtai\Aiagent\Mcp\ServerConfig::moduleServers(false) as $server)
+		{
+			$options[$server['name']] = $server['name'] . ' — ' . $server['url'];
+		}
+
+		return $options;
 	}
 
 	public function execute(): int
@@ -172,6 +196,11 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 
 		$userId = (int)$this->{self::PARAM_USER_ID};
 
+		// Мультиселект хранит массив выбранных имён; в шаблонах со старым
+		// текстовым полем значение остаётся строкой — Runner разбирает оба.
+		$mcpServers = $this->{self::PARAM_MCP_SERVERS};
+		$mcpServers = is_array($mcpServers) ? $mcpServers : (string)($mcpServers ?? '');
+
 		$result = (new \Mtai\Aiagent\Agent\Runner())->run(
 			$mode,
 			$question,
@@ -179,7 +208,7 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 			(string)$this->{self::PARAM_MEMORY_KEY},
 			$userId,
 			(string)$this->{self::PARAM_MODEL},
-			(string)$this->{self::PARAM_MCP_SERVERS},
+			$mcpServers,
 		);
 
 		$this->Answer = $result['answer'] !== '' ? $result['answer'] : null;

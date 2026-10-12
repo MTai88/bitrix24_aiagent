@@ -41,9 +41,10 @@ final class Runner
 
 	/**
 	 * Запуск агента.
-	 * @param string $mcpServersRaw дополнительные MCP-серверы активности
-	 *        (многострочный текст; к серверам из настроек модуля не
-	 *        заменяет, а добавляется)
+	 * @param string|array $mcpServers выбранные в активности серверы MCP
+	 *        (имена из настроек модуля; пусто = без MCP — по умолчанию
+	 *        в активности MCP выключены). Строка — разбор ведётся по
+	 *        формату старого текстового поля (обратная совместимость).
 	 * @return array{answer: string, error: ?string}
 	 */
 	public function run(
@@ -53,7 +54,7 @@ final class Runner
 		string $memoryKey = '',
 		int $userId = 0,
 		string $model = '',
-		string $mcpServersRaw = '',
+		string|array $mcpServers = [],
 	): array {
 		$question = trim($question);
 		if ($question === '')
@@ -72,7 +73,7 @@ final class Runner
 
 		$result = match ($mode)
 		{
-			self::MODE_AGENT => $this->runAgent($question, $systemPrompt, $key, $memory, $userId, $model, $mcpServersRaw),
+			self::MODE_AGENT => $this->runAgent($question, $systemPrompt, $key, $memory, $userId, $model, $mcpServers),
 			self::MODE_DIRECT => $this->runDirect($question, $systemPrompt, $key, $memory, $model),
 			default => $this->runAssistant($question, $systemPrompt, $key, $memory, $model),
 		};
@@ -203,8 +204,8 @@ final class Runner
 		}
 	}
 
-	/** Выполнение задачи инструментами CRM (+ инструменты MCP, если заданы). */
-	private function runAgent(string $task, ?string $systemPrompt, string $key, Store $memory, int $userId, string $model = '', string $mcpServersRaw = ''): array
+	/** Выполнение задачи инструментами CRM (+ инструменты MCP, если выбраны в активности). */
+	private function runAgent(string $task, ?string $systemPrompt, string $key, Store $memory, int $userId, string $model = '', string|array $mcpServers = []): array
 	{
 		$system = trim((string)$systemPrompt);
 		if ($system === '')
@@ -215,9 +216,9 @@ final class Runner
 		$now = new \Bitrix\Main\Type\DateTime();
 		$system .= "\n\nКонтекст: текущая дата и время — " . $now->format('d.m.Y (D) H:i') . '.';
 
-		// MCP: серверы из настроек модуля + дополнительные из активности.
-		// Мастер-выключатель mcp_enabled гасит всё (см. ServerConfig).
-		$mcpServers = \Mtai\Aiagent\Mcp\ServerConfig::serversForRun($mcpServersRaw);
+		// MCP: только то, что выбрано в параметрах активности (по умолчанию
+		// MCP выключены). Чатовый мастер-выключатель здесь не участвует.
+		$mcpServers = \Mtai\Aiagent\Mcp\ServerConfig::serversForActivity($mcpServers);
 		$mcp = $mcpServers === [] ? null : new \Mtai\Aiagent\Mcp\Manager($mcpServers);
 		if ($mcp !== null)
 		{

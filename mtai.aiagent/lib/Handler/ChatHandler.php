@@ -94,13 +94,15 @@ final class ChatHandler
 	{
 		$provider = Factory::create();
 
-		// MCP: внешние инструменты из настроек модуля. Только личные чаты
-		// сотрудников — открытые линии клиентов остаются строго на RAG по
-		// базе знаний (OpenLineHandler MCP не получает).
-		$mcp = $this->mcpManager();
+		// MCP: внешние инструменты для чата сотрудников — мастер-выключатель
+		// «Включить в чате» + галочки «Вкл.» у серверов. Открытые линии
+		// клиентов остаются строго на RAG (OpenLineHandler MCP не получает);
+		// активности БП выбирают серверы своим параметром.
+		$mcpServers = \Mtai\Aiagent\Mcp\ServerConfig::serversForChat();
+		$mcp = $mcpServers === [] ? null : new \Mtai\Aiagent\Mcp\Manager($mcpServers);
 		if ($mcp !== null)
 		{
-			Logger::info('chat', 'MCP: серверы ' . implode(', ', array_column(\Mtai\Aiagent\Mcp\ServerConfig::moduleServers(true), 'name')));
+			Logger::info('chat', 'MCP: серверы ' . implode(', ', array_column($mcpServers, 'name')));
 		}
 
 		$executor = new ToolExecutor($this->rest, $mcp);
@@ -112,19 +114,6 @@ final class ChatHandler
 		return $result['error'] !== null
 			? 'AI-агент временно недоступен: ' . $result['error']
 			: $result['answer'];
-	}
-
-	/** Агрегатор MCP по настройкам модуля (null, если выключено или пусто). */
-	private function mcpManager(): ?\Mtai\Aiagent\Mcp\Manager
-	{
-		if (!Config::isEnabled('mcp_enabled'))
-		{
-			return null;
-		}
-
-		$servers = \Mtai\Aiagent\Mcp\ServerConfig::moduleServers(true);
-
-		return $servers === [] ? null : new \Mtai\Aiagent\Mcp\Manager($servers);
 	}
 
 	private function buildMessages(string $key, bool $nativeTools, string $userName = '', int $userId = 0, ?\Mtai\Aiagent\Mcp\Manager $mcp = null): array
