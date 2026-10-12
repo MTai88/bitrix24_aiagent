@@ -6,6 +6,8 @@ $MESS['MTAI_AIAGENT_TITLE'] = 'Настройки AI-агента';
 
 $MESS['MTAI_AIAGENT_TAB_LLM'] = 'LLM';
 $MESS['MTAI_AIAGENT_TAB_LLM_TITLE'] = 'Подключение языковой модели';
+$MESS['MTAI_AIAGENT_TAB_MCP'] = 'MCP';
+$MESS['MTAI_AIAGENT_TAB_MCP_TITLE'] = 'MCP-серверы: внешние инструменты для AI-агента';
 $MESS['MTAI_AIAGENT_TAB_APP'] = 'Приложение и бот';
 $MESS['MTAI_AIAGENT_TAB_APP_TITLE'] = 'Локальное REST-приложение и чат-бот imbot.v2';
 $MESS['MTAI_AIAGENT_TAB_OL'] = 'Открытые линии';
@@ -49,6 +51,23 @@ $MESS['MTAI_AIAGENT_EMBED_MODEL'] = 'Модель эмбеддингов';
 
 $MESS['MTAI_AIAGENT_SECRET_STORED'] = '● задан, введите новый для замены';
 $MESS['MTAI_AIAGENT_SECRET_EMPTY'] = 'не задан';
+
+$MESS['MTAI_AIAGENT_MCP_ENABLED'] = 'Включить MCP';
+$MESS['MTAI_AIAGENT_MCP_ENABLED_HINT'] = 'Мастер-выключатель: гасит инструменты MCP в активностях бизнес-процессов. Транспорт — streamable HTTP (JSON-RPC 2.0), авторизация — Bearer API-ключ. Инструменты MCP доступны агенту в режиме «Выполнить задачу».';
+$MESS['MTAI_AIAGENT_MCP_HEAD'] = 'Серверы';
+$MESS['MTAI_AIAGENT_MCP_COL_NAME'] = 'Имя';
+$MESS['MTAI_AIAGENT_MCP_COL_URL'] = 'URL (конечная точка MCP)';
+$MESS['MTAI_AIAGENT_MCP_COL_KEY'] = 'API-ключ';
+$MESS['MTAI_AIAGENT_MCP_COL_ENABLED'] = 'Вкл.';
+$MESS['MTAI_AIAGENT_MCP_COL_DELETE'] = 'Удалить';
+$MESS['MTAI_AIAGENT_MCP_ADD'] = 'Добавить сервер';
+$MESS['MTAI_AIAGENT_MCP_KEY_HINT'] = 'API-ключ отправляется заголовком Authorization: Bearer. Ключ хранится в БД зашифрованным; пустое поле при сохранении сохранённое значение не затирает. Имя лучше задавать латиницей — из него строятся имена инструментов mcp_{имя}_{инструмент}.';
+$MESS['MTAI_AIAGENT_MCP_TEST'] = 'Проверка подключения';
+$MESS['MTAI_AIAGENT_MCP_TEST_BTN'] = 'Проверить серверы';
+$MESS['MTAI_AIAGENT_MCP_TEST_HINT'] = 'Handshake и количество инструментов по каждому включённому серверу. Проверяются сохранённые настройки, а не данные формы.';
+$MESS['MTAI_AIAGENT_MCP_NO_SERVERS'] = 'Нет включённых серверов MCP.';
+$MESS['MTAI_AIAGENT_MCP_TOOLS_COUNT'] = '%d инструментов';
+$MESS['MTAI_AIAGENT_MCP_FAIL'] = 'ошибка:';
 
 $MESS['MTAI_AIAGENT_APP_HEAD'] = 'Локальное REST-приложение';
 $MESS['MTAI_AIAGENT_AUTH_MODE'] = 'Режим авторизации';

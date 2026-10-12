@@ -28,6 +28,7 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 	private const PARAM_USER_ID = 'UserId';
 	private const PARAM_ANSWER_FIELD = 'AnswerField';
 	private const PARAM_MODEL = 'Model';
+	private const PARAM_MCP_SERVERS = 'McpServers';
 
 	public function __construct(string $name)
 	{
@@ -42,6 +43,7 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 			self::PARAM_USER_ID => null,
 			self::PARAM_ANSWER_FIELD => null,
 			self::PARAM_MODEL => null,
+			self::PARAM_MCP_SERVERS => null,
 
 			// Результаты
 			'Answer' => null,
@@ -124,6 +126,13 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 				'Type' => FieldType::STRING,
 				'Default' => '',
 			],
+			self::PARAM_MCP_SERVERS => [
+				'Name' => Loc::getMessage('MTAI_AIAGENT_ACTIVITY_PARAM_MCP_SERVERS'),
+				'FieldName' => self::PARAM_MCP_SERVERS,
+				'Type' => FieldType::TEXT,
+				'Default' => '',
+				'Description' => Loc::getMessage('MTAI_AIAGENT_ACTIVITY_PARAM_MCP_SERVERS_HINT'),
+			],
 		];
 	}
 
@@ -170,6 +179,7 @@ class CBPMtaiAgentActivity extends BaseActivity implements IBPConfigurableActivi
 			(string)$this->{self::PARAM_MEMORY_KEY},
 			$userId,
 			(string)$this->{self::PARAM_MODEL},
+			(string)$this->{self::PARAM_MCP_SERVERS},
 		);
 
 		$this->Answer = $result['answer'] !== '' ? $result['answer'] : null;

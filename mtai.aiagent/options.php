@@ -25,6 +25,7 @@ $postAction = (string)($_POST['mtai_action'] ?? '');
 
 $tabControl = new CAdminTabControl('mtaiAiagentTabs', [
 	['DIV' => 'tab_llm', 'TAB' => GetMessage('MTAI_AIAGENT_TAB_LLM'), 'TITLE' => GetMessage('MTAI_AIAGENT_TAB_LLM_TITLE')],
+	['DIV' => 'tab_mcp', 'TAB' => GetMessage('MTAI_AIAGENT_TAB_MCP'), 'TITLE' => GetMessage('MTAI_AIAGENT_TAB_MCP_TITLE')],
 	['DIV' => 'tab_app', 'TAB' => GetMessage('MTAI_AIAGENT_TAB_APP'), 'TITLE' => GetMessage('MTAI_AIAGENT_TAB_APP_TITLE')],
 	['DIV' => 'tab_ol', 'TAB' => GetMessage('MTAI_AIAGENT_TAB_OL'), 'TITLE' => GetMessage('MTAI_AIAGENT_TAB_OL_TITLE')],
 	['DIV' => 'tab_chat', 'TAB' => GetMessage('MTAI_AIAGENT_TAB_CHAT'), 'TITLE' => GetMessage('MTAI_AIAGENT_TAB_CHAT_TITLE')],
@@ -73,6 +74,22 @@ if ($isPost && check_bitrix_sessid() && $postAction !== '' && $postAction !== 's
 				(new \Mtai\Aiagent\Queue\Processor())->tick();
 				$message = ['OK', GetMessage('MTAI_AIAGENT_BOT_TEST_OK')];
 				break;
+			case 'mcp_test':
+				// Проверка сохранённых серверов (не данных формы): handshake
+				// + количество инструментов по каждому включённому серверу.
+				\Mtai\Aiagent\Mcp\Client::resetCache();
+				$status = (new \Mtai\Aiagent\Mcp\Manager(
+					\Mtai\Aiagent\Mcp\ServerConfig::moduleServers(true)
+				))->status();
+				$lines = [];
+				foreach ($status as $row)
+				{
+					$lines[] = $row['name'] . ': ' . ($row['ok']
+						? sprintf(GetMessage('MTAI_AIAGENT_MCP_TOOLS_COUNT'), (int)$row['tools'])
+						: GetMessage('MTAI_AIAGENT_MCP_FAIL') . ' ' . $row['error']);
+				}
+				$message = ['OK', $lines === [] ? GetMessage('MTAI_AIAGENT_MCP_NO_SERVERS') : implode('; ', $lines)];
+				break;
 			default:
 				$message = null;
 		}
@@ -116,10 +133,53 @@ if ($isPost && check_bitrix_sessid() && $postAction === 'save')
 	}
 
 	// Чекбоксы: отсутствующий в POST = N.
-	foreach (['ol_enabled', 'ol_no_answer_escalate', 'ol_self_check', 'ol_create_lead', 'chat_enabled', 'llm_ssl_verify'] as $flag)
+	foreach (['ol_enabled', 'ol_no_answer_escalate', 'ol_self_check', 'ol_create_lead', 'chat_enabled', 'llm_ssl_verify', 'mcp_enabled'] as $flag)
 	{
 		Config::set($flag, isset($_POST[$flag]) ? 'Y' : 'N');
 	}
+
+	// MCP-серверы: строки вкладки «MCP». Пустой API-ключ в POST не затирает
+	// сохранённый — ищем прежнее значение по паре «имя + URL».
+	$storedServers = \Mtai\Aiagent\Mcp\ServerConfig::moduleServers();
+	$mcpRows = [];
+	foreach ((array)($_POST['mcp_servers'] ?? []) as $row)
+	{
+		$row = (array)$row;
+		$name = trim((string)($row['name'] ?? ''));
+		$url = trim((string)($row['url'] ?? ''));
+		if ($url === '')
+		{
+			continue;
+		}
+
+		$apiKey = trim((string)($row['api_key'] ?? ''));
+		if ($apiKey === '')
+		{
+			foreach ($storedServers as $stored)
+			{
+				if ($stored['name'] === $name && $stored['url'] === $url)
+				{
+					$apiKey = $stored['api_key'];
+
+					break;
+				}
+			}
+		}
+
+		$mcpRows[] = [
+			'name' => $name,
+			'url' => $url,
+			'api_key' => $apiKey,
+			'enabled' => isset($row['enabled']),
+		];
+	}
+	Config::set(
+		\Mtai\Aiagent\Mcp\ServerConfig::OPTION_NAME,
+		\Bitrix\Main\Web\Json::encode(
+			\Mtai\Aiagent\Mcp\ServerConfig::encodeForStorage($mcpRows),
+			JSON_UNESCAPED_UNICODE
+		)
+	);
 
 	// Секреты: пустое поле в POST не затирает сохранённое значение.
 	foreach (['llm_api_key', 'app_client_secret', 'app_refresh_token', 'webhook_password'] as $secret)
@@ -159,6 +219,7 @@ $llmKeySet = Config::getSecret('llm_api_key') !== '';
 $secretSet = Config::getSecret('app_client_secret') !== '';
 $refreshSet = Config::getSecret('app_refresh_token') !== '';
 $webhookSet = Config::getSecret('webhook_password') !== '';
+$mcpServers = \Mtai\Aiagent\Mcp\ServerConfig::moduleServers();
 
 $appOk = null;
 // ВАЖНО: при рендере страницы НЕ проверяем связь с порталом — синхронный
@@ -282,6 +343,102 @@ $tabControl->Begin();
 		<td><?= GetMessage('MTAI_AIAGENT_EMBED_MODEL') ?></td>
 		<td><input type="text" size="50" name="llm_embedding_model" value="<?= htmlspecialcharsbx(Config::get('llm_embedding_model')) ?>"></td>
 	</tr>
+
+	<?php $tabControl->BeginNextTab(); ?>
+
+	<tr>
+		<td width="40%"><?= GetMessage('MTAI_AIAGENT_MCP_ENABLED') ?></td>
+		<td>
+			<input type="checkbox" name="mcp_enabled" value="Y" <?= Config::isEnabled('mcp_enabled') ? 'checked' : '' ?>>
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_MCP_ENABLED_HINT') ?></div>
+		</td>
+	</tr>
+	<tr class="heading">
+		<td colspan="2"><?= GetMessage('MTAI_AIAGENT_MCP_HEAD') ?></td>
+	</tr>
+	<tr>
+		<td colspan="2">
+			<table class="internal" style="width:100%">
+				<thead>
+				<tr class="heading">
+					<td><?= GetMessage('MTAI_AIAGENT_MCP_COL_NAME') ?></td>
+					<td><?= GetMessage('MTAI_AIAGENT_MCP_COL_URL') ?></td>
+					<td><?= GetMessage('MTAI_AIAGENT_MCP_COL_KEY') ?></td>
+					<td><?= GetMessage('MTAI_AIAGENT_MCP_COL_ENABLED') ?></td>
+					<td></td>
+				</tr>
+				</thead>
+				<tbody id="mtai_mcp_rows">
+				<?php foreach ($mcpServers as $i => $srv): ?>
+					<tr>
+						<td><input type="text" size="18" name="mcp_servers[<?= $i ?>][name]"
+								   value="<?= htmlspecialcharsbx($srv['name']) ?>"></td>
+						<td><input type="text" size="42" name="mcp_servers[<?= $i ?>][url]"
+								   value="<?= htmlspecialcharsbx($srv['url']) ?>"></td>
+						<td><input type="password" size="24" autocomplete="new-password" name="mcp_servers[<?= $i ?>][api_key]"
+								   placeholder="<?= $srv['api_key'] !== '' ? GetMessage('MTAI_AIAGENT_SECRET_STORED') : GetMessage('MTAI_AIAGENT_SECRET_EMPTY') ?>"></td>
+						<td style="text-align:center">
+							<input type="checkbox" name="mcp_servers[<?= $i ?>][enabled]" value="Y" <?= !empty($srv['enabled']) ? 'checked' : '' ?>>
+						</td>
+						<td>
+							<button type="button" onclick="mtaiMcpRemoveRow(this)"><?= GetMessage('MTAI_AIAGENT_MCP_COL_DELETE') ?></button>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+				<tr id="mtai_mcp_tpl" style="display:none">
+					<td><input type="text" size="18" data-field="name" value=""></td>
+					<td><input type="text" size="42" data-field="url" value=""></td>
+					<td><input type="password" size="24" autocomplete="new-password" data-field="api_key" value=""></td>
+					<td style="text-align:center"><input type="checkbox" data-field="enabled" value="Y" checked></td>
+					<td>
+						<button type="button" onclick="mtaiMcpRemoveRow(this)"><?= GetMessage('MTAI_AIAGENT_MCP_COL_DELETE') ?></button>
+					</td>
+				</tr>
+				</tbody>
+			</table>
+			<div style="margin-top:6px">
+				<button type="button" onclick="mtaiMcpAddRow()"><?= GetMessage('MTAI_AIAGENT_MCP_ADD') ?></button>
+			</div>
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_MCP_KEY_HINT') ?></div>
+		</td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_MCP_TEST') ?></td>
+		<td>
+			<button type="submit" name="mcp_test_btn" value="Y"
+					onclick="this.form.mtai_action.value='mcp_test'; this.form.submit(); return false;">
+				<?= GetMessage('MTAI_AIAGENT_MCP_TEST_BTN') ?>
+			</button>
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_MCP_TEST_HINT') ?></div>
+		</td>
+	</tr>
+	<script>
+		var mtaiMcpIdx = <?= count($mcpServers) ?>;
+
+		function mtaiMcpAddRow() {
+			var tpl = document.getElementById('mtai_mcp_tpl');
+			var row = tpl.cloneNode(true);
+			row.removeAttribute('id');
+			row.style.display = '';
+			var inputs = row.querySelectorAll('input[data-field]');
+			for (var i = 0; i < inputs.length; i++) {
+				inputs[i].setAttribute('name', 'mcp_servers[' + mtaiMcpIdx + '][' + inputs[i].getAttribute('data-field') + ']');
+			}
+			mtaiMcpIdx++;
+			document.getElementById('mtai_mcp_rows').appendChild(row);
+
+			return false;
+		}
+
+		function mtaiMcpRemoveRow(btn) {
+			var row = btn.closest ? btn.closest('tr') : null;
+			if (row && row.parentNode) {
+				row.parentNode.removeChild(row);
+			}
+
+			return false;
+		}
+	</script>
 
 	<?php $tabControl->BeginNextTab(); ?>
 

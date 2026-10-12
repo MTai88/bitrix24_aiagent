@@ -19,6 +19,7 @@ Loader::registerAutoLoadClasses(
 		'Mtai\\Aiagent\\EventHandler' => 'lib/EventHandler.php',
 		'Mtai\\Aiagent\\LlmException' => 'lib/LlmException.php',
 		'Mtai\\Aiagent\\RestException' => 'lib/RestException.php',
+		'Mtai\\Aiagent\\McpException' => 'lib/McpException.php',
 		// --- ORM ---
 		'Mtai\\Aiagent\\Orm\\DocumentTable' => 'lib/Orm/DocumentTable.php',
 		'Mtai\\Aiagent\\Orm\\ChunkTable' => 'lib/Orm/ChunkTable.php',
@@ -60,5 +61,9 @@ Loader::registerAutoLoadClasses(
 		'Mtai\\Aiagent\\Chat\\AccessGuard' => 'lib/Chat/AccessGuard.php',
 		'Mtai\\Aiagent\\Chat\\Tools' => 'lib/Chat/Tools.php',
 		'Mtai\\Aiagent\\Chat\\ToolExecutor' => 'lib/Chat/ToolExecutor.php',
+		// --- MCP (Model Context Protocol) ---
+		'Mtai\\Aiagent\\Mcp\\ServerConfig' => 'lib/Mcp/ServerConfig.php',
+		'Mtai\\Aiagent\\Mcp\\Client' => 'lib/Mcp/Client.php',
+		'Mtai\\Aiagent\\Mcp\\Manager' => 'lib/Mcp/Manager.php',
 	]
 );

@@ -25,6 +25,10 @@ $mtai_aiagent_default_option = [
 	'gigachat_token_expires' => '0',  // кеш access-токена GigaChat (сам токен — секрет)
 	'gigachat_scope' => 'GIGACHAT_API_PERS', // scope OAuth-запроса GigaChat (PERS/B2B/API)
 
+	// ---------- MCP (Model Context Protocol) ----------
+	'mcp_enabled' => 'N',                // мастер-выключатель инструментов MCP
+	'mcp_servers' => '',                 // JSON: [{name,url,api_key(enc1:),enabled}]
+
 	// ---------- RAG ----------
 	'rag_top_k' => '5',
 	'rag_min_score' => '0.20',           // порог косинусной близости 0..1

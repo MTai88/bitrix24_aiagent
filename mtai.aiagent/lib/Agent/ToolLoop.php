@@ -6,6 +6,7 @@ use Bitrix\Main\Web\Json;
 use Mtai\Aiagent\Chat\ToolExecutor;
 use Mtai\Aiagent\Chat\Tools;
 use Mtai\Aiagent\Llm\ProviderInterface;
+use Mtai\Aiagent\Mcp\Manager;
 
 /**
  * Цикл исполнения инструментов LLM (function calling либо JSON-протокол).
@@ -13,6 +14,9 @@ use Mtai\Aiagent\Llm\ProviderInterface;
  * Общий для чат-агента и активности бизнес-процесса: модель запрашивает
  * инструмент → исполнение через REST → результат модели → … до финального
  * ответа (≤ MAX_ITERATIONS итераций).
+ *
+ * Инструменты MCP передаются отдельным агрегатором: описания подмешиваются
+ * к локальным при function calling, исполнение идёт через ToolExecutor.
  */
 final class ToolLoop
 {
@@ -23,6 +27,8 @@ final class ToolLoop
 	 * @param ProviderInterface $provider провайдер (supportsTools уже учтён)
 	 * @param ToolExecutor $executor исполнитель инструментов
 	 * @param int $userId от чьего имени выполняются действия в CRM
+	 * @param string $model переопределение модели (пусто = из настроек)
+	 * @param Manager|null $mcp агрегатор инструментов MCP (null = без MCP)
 	 * @return array{answer: string, error: ?string}
 	 */
 	public static function run(
@@ -31,6 +37,7 @@ final class ToolLoop
 		ToolExecutor $executor,
 		int $userId,
 		string $model = '',
+		?Manager $mcp = null,
 	): array {
 		$options = trim($model) !== '' ? ['model' => trim($model)] : [];
 
@@ -38,7 +45,7 @@ final class ToolLoop
 		{
 			if ($provider->supportsTools())
 			{
-				return ['answer' => self::runNative($messages, $provider, $executor, $userId, $options), 'error' => null];
+				return ['answer' => self::runNative($messages, $provider, $executor, $userId, $options, $mcp), 'error' => null];
 			}
 
 			return ['answer' => self::runJsonProtocol($messages, $provider, $executor, $userId, $options), 'error' => null];
@@ -49,9 +56,13 @@ final class ToolLoop
 		}
 	}
 
-	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = []): string
+	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?Manager $mcp = null): string
 	{
 		$tools = Tools::definitions();
+		if ($mcp !== null)
+		{
+			$tools = array_merge($tools, $mcp->definitions());
+		}
 
 		for ($i = 0; $i < self::MAX_ITERATIONS; $i++)
 		{

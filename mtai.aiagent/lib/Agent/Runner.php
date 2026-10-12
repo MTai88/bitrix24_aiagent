@@ -41,6 +41,9 @@ final class Runner
 
 	/**
 	 * Запуск агента.
+	 * @param string $mcpServersRaw дополнительные MCP-серверы активности
+	 *        (многострочный текст; к серверам из настроек модуля не
+	 *        заменяет, а добавляется)
 	 * @return array{answer: string, error: ?string}
 	 */
 	public function run(
@@ -50,6 +53,7 @@ final class Runner
 		string $memoryKey = '',
 		int $userId = 0,
 		string $model = '',
+		string $mcpServersRaw = '',
 	): array {
 		$question = trim($question);
 		if ($question === '')
@@ -68,7 +72,7 @@ final class Runner
 
 		$result = match ($mode)
 		{
-			self::MODE_AGENT => $this->runAgent($question, $systemPrompt, $key, $memory, $userId, $model),
+			self::MODE_AGENT => $this->runAgent($question, $systemPrompt, $key, $memory, $userId, $model, $mcpServersRaw),
 			self::MODE_DIRECT => $this->runDirect($question, $systemPrompt, $key, $memory, $model),
 			default => $this->runAssistant($question, $systemPrompt, $key, $memory, $model),
 		};
@@ -199,8 +203,8 @@ final class Runner
 		}
 	}
 
-	/** Выполнение задачи инструментами CRM. */
-	private function runAgent(string $task, ?string $systemPrompt, string $key, Store $memory, int $userId, string $model = ''): array
+	/** Выполнение задачи инструментами CRM (+ инструменты MCP, если заданы). */
+	private function runAgent(string $task, ?string $systemPrompt, string $key, Store $memory, int $userId, string $model = '', string $mcpServersRaw = ''): array
 	{
 		$system = trim((string)$systemPrompt);
 		if ($system === '')
@@ -211,10 +215,28 @@ final class Runner
 		$now = new \Bitrix\Main\Type\DateTime();
 		$system .= "\n\nКонтекст: текущая дата и время — " . $now->format('d.m.Y (D) H:i') . '.';
 
+		// MCP: серверы из настроек модуля + дополнительные из активности.
+		// Мастер-выключатель mcp_enabled гасит всё (см. ServerConfig).
+		$mcpServers = \Mtai\Aiagent\Mcp\ServerConfig::serversForRun($mcpServersRaw);
+		$mcp = $mcpServers === [] ? null : new \Mtai\Aiagent\Mcp\Manager($mcpServers);
+		if ($mcp !== null)
+		{
+			Logger::info('bp', 'MCP: серверы ' . implode(', ', array_column($mcpServers, 'name')));
+		}
+
 		if (!Factory::create()->supportsTools())
 		{
-			$system .= "\n\nИнструменты, доступные тебе:\n" . \Mtai\Aiagent\Chat\Tools::forPrompt()
-				. "\n\nОтвечай СТРОГО одним JSON-объектом без markdown-обёрток:\n"
+			$system .= "\n\nИнструменты, доступные тебе:\n" . \Mtai\Aiagent\Chat\Tools::forPrompt();
+			if ($mcp !== null)
+			{
+				$mcpPrompt = $mcp->forPrompt();
+				if ($mcpPrompt !== '')
+				{
+					$system .= "\n\nИнструменты MCP-серверов:\n" . $mcpPrompt;
+				}
+			}
+
+			$system .= "\n\nОтвечай СТРОГО одним JSON-объектом без markdown-обёрток:\n"
 				. "- для вызова инструмента: {\"tool\": \"имя\", \"arguments\": {…}}\n"
 				. "- для финального ответа: {\"answer\": \"текст\"}";
 		}
@@ -230,7 +252,7 @@ final class Runner
 			$messages[] = ['role' => 'user', 'content' => $task];
 		}
 
-		$result = ToolLoop::run($messages, Factory::create(), new ToolExecutor(), $userId, $model);
+		$result = ToolLoop::run($messages, Factory::create(), new ToolExecutor(null, $mcp), $userId, $model, $mcp);
 		if ($result['error'] !== null)
 		{
 			Logger::error('bp', 'agent failed: ' . $result['error']);

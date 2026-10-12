@@ -6,6 +6,8 @@ $MESS['MTAI_AIAGENT_TITLE'] = 'AI Agent settings';
 
 $MESS['MTAI_AIAGENT_TAB_LLM'] = 'LLM';
 $MESS['MTAI_AIAGENT_TAB_LLM_TITLE'] = 'Language model connection';
+$MESS['MTAI_AIAGENT_TAB_MCP'] = 'MCP';
+$MESS['MTAI_AIAGENT_TAB_MCP_TITLE'] = 'MCP servers: external tools for the AI agent';
 $MESS['MTAI_AIAGENT_TAB_APP'] = 'App & bot';
 $MESS['MTAI_AIAGENT_TAB_APP_TITLE'] = 'Local REST application and imbot.v2 chat bot';
 $MESS['MTAI_AIAGENT_TAB_OL'] = 'Open lines';
@@ -49,6 +51,23 @@ $MESS['MTAI_AIAGENT_EMBED_MODEL'] = 'Embedding model';
 
 $MESS['MTAI_AIAGENT_SECRET_STORED'] = '● set, type a new one to replace';
 $MESS['MTAI_AIAGENT_SECRET_EMPTY'] = 'not set';
+
+$MESS['MTAI_AIAGENT_MCP_ENABLED'] = 'Enable MCP';
+$MESS['MTAI_AIAGENT_MCP_ENABLED_HINT'] = 'Master switch: disables MCP tools in business process activities. Transport: streamable HTTP (JSON-RPC 2.0), authorization: Bearer API key. MCP tools are available to the agent in "Execute task" mode.';
+$MESS['MTAI_AIAGENT_MCP_HEAD'] = 'Servers';
+$MESS['MTAI_AIAGENT_MCP_COL_NAME'] = 'Name';
+$MESS['MTAI_AIAGENT_MCP_COL_URL'] = 'URL (MCP endpoint)';
+$MESS['MTAI_AIAGENT_MCP_COL_KEY'] = 'API key';
+$MESS['MTAI_AIAGENT_MCP_COL_ENABLED'] = 'On';
+$MESS['MTAI_AIAGENT_MCP_COL_DELETE'] = 'Delete';
+$MESS['MTAI_AIAGENT_MCP_ADD'] = 'Add server';
+$MESS['MTAI_AIAGENT_MCP_KEY_HINT'] = 'The API key is sent as the Authorization: Bearer header. Stored encrypted; leaving the field empty keeps the saved value. Prefer a latin name — tool names are built as mcp_{name}_{tool}.';
+$MESS['MTAI_AIAGENT_MCP_TEST'] = 'Connection test';
+$MESS['MTAI_AIAGENT_MCP_TEST_BTN'] = 'Test servers';
+$MESS['MTAI_AIAGENT_MCP_TEST_HINT'] = 'Handshake and tool count for each enabled server. Tests the saved settings, not the form data.';
+$MESS['MTAI_AIAGENT_MCP_NO_SERVERS'] = 'No enabled MCP servers.';
+$MESS['MTAI_AIAGENT_MCP_TOOLS_COUNT'] = '%d tools';
+$MESS['MTAI_AIAGENT_MCP_FAIL'] = 'error:';
 
 $MESS['MTAI_AIAGENT_APP_HEAD'] = 'Local REST application';
 $MESS['MTAI_AIAGENT_AUTH_MODE'] = 'Authorization mode';
