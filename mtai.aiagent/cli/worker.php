@@ -11,6 +11,7 @@
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php jobs
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php log tail 20
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php rest METHOD '{"param":1}'
+ *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php tool NAME '{"arg":1}' [USER_ID]
  */
 
 declare(strict_types=1);
@@ -183,6 +184,17 @@ try
 			$out(print_r((new Client())->call($method, $params), true));
 			break;
 
+		case 'tool':
+			$name = (string)$arg;
+			$params = [];
+			if (isset($argv[3]) && trim((string)$argv[3]) !== '')
+			{
+				$params = (array)\Bitrix\Main\Web\Json::decode((string)$argv[3]);
+			}
+			$forUserId = (int)($argv[4] ?? 1);
+			$out(print_r(\Mtai\Aiagent\Tools\ToolRegistry::execute($name, $params, $forUserId, new Client()), true));
+			break;
+
 		case 'options':
 			$out('portal_url: ' . Config::portalUrl());
 			$out('app configured: ' . (Client::isConfigured() ? 'yes' : 'no'));
@@ -194,7 +206,7 @@ try
 			break;
 
 		default:
-			$out('Usage: worker.php fetch|process|loop|bot <cmd>|kb <cmd> [id]|jobs|log <n>|rest METHOD JSON|options');
+			$out('Usage: worker.php fetch|process|loop|bot <cmd>|kb <cmd> [id]|jobs|log <n>|rest METHOD JSON|tool NAME JSON [userId]|options');
 	}
 }
 catch (\Throwable $e)

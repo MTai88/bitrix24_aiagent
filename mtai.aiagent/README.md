@@ -101,7 +101,8 @@ docker compose exec php php local/modules/mtai.aiagent/cli/worker.php log tail 3
 ### Вариант B — входящий вебхук + botToken (стенд)
 
 1. «Настройки → Интеграции → Входящий вебхук» с теми же правами
-   (im, imbot, imopenlines, crm, task, user — scope задач называется task).
+   (im, imbot, imopenlines, crm, task, user, calendar — scope задач
+   называется task).
 2. В настройках модуля: «Режим авторизации» = «Входящий вебхук + botToken»,
    «Владелец вебхука» = ID пользователя, «Код вебхука» = хвост URL
    (`/rest/<USER_ID>/<КОД>/`).
@@ -198,6 +199,9 @@ docker compose exec php php local/modules/mtai.aiagent/cli/worker.php bot regist
 | `crm_create_task` | `tasks.task.add` (+ `UF_CRM_TASK` привязка `L_/D_/C_/CO_`) |
 | `tasks_list` | `tasks.task.list` — «мои задачи» (незавершённые/завершённые) |
 | `task_complete` | `tasks.task.complete` — завершить по ID |
+| `calendar_events_list` | `calendar.event.get` — «мой календарь» за период (по умолчанию сегодня…+7 дней), участники с именами |
+| `calendar_event_create` | `calendar.section.get` + `calendar.event.add` — событие/встреча; участники по имени (`find_user`), дата без времени = весь день; нераспознанные имена возвращаются в `attendees_not_found` |
+| `calendar_event_delete` | `calendar.event.getbyid` + `calendar.event.delete` — только собственное событие своего календаря |
 | `crm_add_comment` | `crm.timeline.comment.add` — запись в историю карточки CRM |
 | `kb_search` | поиск по базе знаний: обе области по умолчанию, параметр `scope` = public/internal (внутренние регламенты сотрудникам) |
 | `find_user` | `user.search`, `user.get` |
@@ -219,7 +223,14 @@ docker compose exec php php local/modules/mtai.aiagent/cli/worker.php bot regist
 - `crm_create_task` с привязкой — только при праве чтения сущности
   (привязка выдаёт факт её существования);
 - `task_complete` — только участнику задачи (создатель/исполнитель/
-  соисполнитель/наблюдатель).
+  соисполнитель/наблюдатель);
+- `calendar_*` — только календарь самого сотрудника (`ownerId` = он сам;
+  чужой календарь агент не читает и в него не пишет), удалять можно только
+  собственные события (`OWNER_ID` + `CAL_TYPE` проверяются перед удалением).
+Ограничение контроллера календаря: встреча (`is_meeting=Y`) создаётся
+с организатором-владельцем вебхука (`MEETING_HOST = $userId` в
+`calendar_restservice.php`), параметр `host` контроллер не читает —
+приглашения и событие в календаре сотрудника при этом корректны.
 Отказ возвращается модели как ошибка — она сообщает сотруднику
 человеческим языком; факт отказа пишется в журнал (категория `access`).
 REST при этом ходит от владельца вебхука — но без guard-проверки действие
