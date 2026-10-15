@@ -134,6 +134,14 @@ final class Fetcher
 			'STATUS' => JobTable::STATUS_NEW,
 		]);
 
+		// Реакция бота — сразу при приёме события, не дожидаясь тика
+		// очереди: «прочитано» под сообщением и «размышает...» в диалоге.
+		// Для команд не поднимаем (обрабатываются мгновенно, без LLM).
+		if ($jobType === 'message' && \Mtai\Aiagent\Handler\ChatHandler::acceptMessage($data))
+		{
+			\Mtai\Aiagent\Handler\ChatHandler::reactToIncoming($data);
+		}
+
 		return 1;
 	}
 }

@@ -23,9 +23,9 @@ use Mtai\Aiagent\Rest\Client;
  * Ответ отправляется через imbot.v2.Chat.Message.send.
  *
  * Индикаторы присутствия (настройки chat_read_receipt / chat_typing_status):
- * входящее сообщение сразу отмечается «прочитано» ботом, а на время
- * обработки в диалог шлётся «AI-агент размышает...»
- * (imbot.v2.Chat.Message.read / imbot.v2.Chat.InputAction.notify).
+ * Fetcher при приёме события сразу отмечает сообщение «прочитано» и шлёт
+ * «AI-агент размышляет...» (ChatHandler::reactToIncoming), а на время
+ * обработки ответа typing продлевается пингами между итерациями ToolLoop.
  */
 final class ChatHandler
 {
@@ -40,35 +40,70 @@ final class ChatHandler
 		$this->memory = $memory ?? new Store();
 	}
 
-	public function handle(array $data): void
+	/**
+	 * Приём входящего сообщения чата (общие условия для реакции бота).
+	 * Используется и обработчиком (handle), и Fetcher'ом — индикаторы
+	 * «прочитано»/«размышает» поднимаются уже при получении события,
+	 * не дожидаясь тика очереди.
+	 */
+	public static function acceptMessage(array $data): bool
 	{
 		if (!Config::isEnabled('chat_enabled'))
 		{
+			return false;
+		}
+
+		$chat = (array)($data['chat'] ?? []);
+		// Работаем только в личных диалогах с ботом.
+		if (($chat['type'] ?? '') !== 'private')
+		{
+			return false;
+		}
+
+		$user = (array)($data['user'] ?? []);
+		$userId = (int)($user['id'] ?? 0);
+		if ($userId <= 0 || !empty($user['bot']))
+		{
+			return false;
+		}
+
+		$allowed = Config::getCommaList('chat_allowed_users');
+
+		return $allowed === [] || in_array((string)$userId, $allowed, true);
+	}
+
+	/** Индикаторы «прочитано» + «размышает...» (вызов — при приёме события). */
+	public static function reactToIncoming(array $data, ?Client $rest = null): void
+	{
+		$chat = (array)($data['chat'] ?? []);
+		$message = (array)($data['message'] ?? []);
+		$botId = Manager::botUserId();
+		$chatId = (int)($chat['id'] ?? 0);
+		$messageId = (int)($message['id'] ?? 0);
+
+		$indicator = new \Mtai\Aiagent\Chat\Indicator($rest);
+		if (Config::isEnabled('chat_read_receipt'))
+		{
+			$indicator->markRead($botId, $chatId, $messageId);
+		}
+		if (Config::isEnabled('chat_typing_status'))
+		{
+			$indicator->showThinking($botId, $chatId);
+		}
+	}
+
+	public function handle(array $data): void
+	{
+		if (!self::acceptMessage($data))
+		{
+			Logger::debug('chat', 'Message not accepted (disabled/wrong chat/bot author/allow-list), skipping');
+
 			return;
 		}
 
 		$chat = (array)($data['chat'] ?? []);
 		$user = (array)($data['user'] ?? []);
 		$userId = (int)($user['id'] ?? 0);
-
-		// Работаем только в личных диалогах с ботом.
-		if (($chat['type'] ?? '') !== 'private')
-		{
-			return;
-		}
-
-		if ($userId <= 0 || !empty($user['bot']))
-		{
-			return;
-		}
-
-		$allowed = Config::getCommaList('chat_allowed_users');
-		if ($allowed !== [] && !in_array((string)$userId, $allowed, true))
-		{
-			Logger::debug('chat', "User #{$userId} not in allow-list, skipping");
-
-			return;
-		}
 
 		$message = (array)($data['message'] ?? []);
 		$text = trim((string)($message['text'] ?? ''));
@@ -86,18 +121,13 @@ final class ChatHandler
 		}
 
 		$chatId = (int)($chat['id'] ?? 0);
-		$messageId = (int)($message['id'] ?? 0);
 
-		// Сразу «прочитано» + «размышает...» — до обращения к LLM,
-		// чтобы сотрудник видел реакцию бота, пока тот думает.
-		$indicator = new \Mtai\Aiagent\Chat\Indicator($this->rest);
-		if (Config::isEnabled('chat_read_receipt'))
-		{
-			$indicator->markRead($botId, $chatId, $messageId);
-		}
+		// «размышает...» продлевается на время обработки (read-метка уже
+		// сдвинута на fetch — повторный markRead не нужен).
 		$refreshTyping = null;
 		if (Config::isEnabled('chat_typing_status'))
 		{
+			$indicator = new \Mtai\Aiagent\Chat\Indicator($this->rest);
 			$indicator->showThinking($botId, $chatId);
 			$refreshTyping = static function () use ($indicator, $botId, $chatId): void
 			{
