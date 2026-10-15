@@ -21,6 +21,11 @@ use Mtai\Aiagent\Rest\Client;
  * (OpenAI-совместимые) — цикл tool call → результат → ответ; без него —
  * JSON-протокол (описание инструментов в промте, ответ строго JSON).
  * Ответ отправляется через imbot.v2.Chat.Message.send.
+ *
+ * Индикаторы присутствия (настройки chat_read_receipt / chat_typing_status):
+ * входящее сообщение сразу отмечается «прочитано» ботом, а на время
+ * обработки в диалог шлётся «AI-агент размышает...»
+ * (imbot.v2.Chat.Message.read / imbot.v2.Chat.InputAction.notify).
  */
 final class ChatHandler
 {
@@ -80,17 +85,37 @@ final class ChatHandler
 			$dialogId = (string)$userId;
 		}
 
+		$chatId = (int)($chat['id'] ?? 0);
+		$messageId = (int)($message['id'] ?? 0);
+
+		// Сразу «прочитано» + «размышает...» — до обращения к LLM,
+		// чтобы сотрудник видел реакцию бота, пока тот думает.
+		$indicator = new \Mtai\Aiagent\Chat\Indicator($this->rest);
+		if (Config::isEnabled('chat_read_receipt'))
+		{
+			$indicator->markRead($botId, $chatId, $messageId);
+		}
+		$refreshTyping = null;
+		if (Config::isEnabled('chat_typing_status'))
+		{
+			$indicator->showThinking($botId, $chatId);
+			$refreshTyping = static function () use ($indicator, $botId, $chatId): void
+			{
+				$indicator->showThinking($botId, $chatId);
+			};
+		}
+
 		$key = 'im:' . $botId . ':' . $userId;
 		$this->memory->append($key, 'user', $text);
 
-		$reply = $this->converse($key, $text, $userId, (string)($user['name'] ?? ''));
+		$reply = $this->converse($key, $text, $userId, (string)($user['name'] ?? ''), $refreshTyping);
 
 		$this->send($botId, $dialogId, $reply);
 		$this->memory->append($key, 'assistant', $reply);
 	}
 
 	/** Диалог с LLM с исполнением инструментов. */
-	private function converse(string $key, string $text, int $userId, string $userName = ''): string
+	private function converse(string $key, string $text, int $userId, string $userName = '', ?callable $onProgress = null): string
 	{
 		$provider = Factory::create();
 
@@ -109,7 +134,7 @@ final class ChatHandler
 
 		$messages = $this->buildMessages($key, $provider->supportsTools(), $userName, $userId, $mcp);
 
-		$result = ToolLoop::run($messages, $provider, $executor, $userId, '', $mcp);
+		$result = ToolLoop::run($messages, $provider, $executor, $userId, '', $mcp, $onProgress);
 
 		return $result['error'] !== null
 			? 'AI-агент временно недоступен: ' . $result['error']

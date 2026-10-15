@@ -130,6 +130,9 @@ $MESS['MTAI_AIAGENT_CHAT_ENABLED'] = 'Включить агента чатов';
 $MESS['MTAI_AIAGENT_CHAT_PROMPT'] = 'Системный промт агента CRM';
 $MESS['MTAI_AIAGENT_CHAT_ALLOWED'] = 'Разрешённые пользователи (ID)';
 $MESS['MTAI_AIAGENT_CHAT_ALLOWED_HINT'] = 'Через запятую; пусто = все сотрудники могут писать боту.';
+$MESS['MTAI_AIAGENT_CHAT_READ_RECEIPT'] = 'Отмечать сообщения «прочитано»';
+$MESS['MTAI_AIAGENT_CHAT_TYPING'] = 'Индикатор «бот печатает»';
+$MESS['MTAI_AIAGENT_CHAT_TYPING_HINT'] = '«AI-агент размышает...» в диалоге на время обработки ответа (imbot.v2.Chat.InputAction.notify).';
 $MESS['MTAI_AIAGENT_HISTORY'] = 'Глубина истории (сообщений)';
 
 $MESS['MTAI_AIAGENT_RAG_TOPK'] = 'Фрагментов в контексте (top-K)';

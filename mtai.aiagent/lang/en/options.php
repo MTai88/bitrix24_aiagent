@@ -130,6 +130,9 @@ $MESS['MTAI_AIAGENT_CHAT_ENABLED'] = 'Enable chats agent';
 $MESS['MTAI_AIAGENT_CHAT_PROMPT'] = 'CRM agent system prompt';
 $MESS['MTAI_AIAGENT_CHAT_ALLOWED'] = 'Allowed users (IDs)';
 $MESS['MTAI_AIAGENT_CHAT_ALLOWED_HINT'] = 'Comma-separated; empty = all employees.';
+$MESS['MTAI_AIAGENT_CHAT_READ_RECEIPT'] = 'Mark messages as read';
+$MESS['MTAI_AIAGENT_CHAT_TYPING'] = '"Bot is typing" indicator';
+$MESS['MTAI_AIAGENT_CHAT_TYPING_HINT'] = 'Shows "AI agent is thinking..." while the reply is being generated (imbot.v2.Chat.InputAction.notify).';
 $MESS['MTAI_AIAGENT_HISTORY'] = 'History depth (messages)';
 
 $MESS['MTAI_AIAGENT_RAG_TOPK'] = 'Context chunks (top-K)';

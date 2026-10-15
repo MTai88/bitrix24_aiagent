@@ -135,7 +135,7 @@ if ($isPost && check_bitrix_sessid() && $postAction === 'save')
 	}
 
 	// Чекбоксы: отсутствующий в POST = N.
-	foreach (['ol_enabled', 'ol_no_answer_escalate', 'ol_self_check', 'ol_create_lead', 'chat_enabled', 'llm_ssl_verify', 'mcp_enabled'] as $flag)
+	foreach (['ol_enabled', 'ol_no_answer_escalate', 'ol_self_check', 'ol_create_lead', 'chat_enabled', 'chat_read_receipt', 'chat_typing_status', 'llm_ssl_verify', 'mcp_enabled'] as $flag)
 	{
 		Config::set($flag, isset($_POST[$flag]) ? 'Y' : 'N');
 	}
@@ -638,6 +638,17 @@ $tabControl->Begin();
 		<td>
 			<input type="text" size="40" name="chat_allowed_users" value="<?= htmlspecialcharsbx(Config::get('chat_allowed_users')) ?>">
 			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_CHAT_ALLOWED_HINT') ?></div>
+		</td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_CHAT_READ_RECEIPT') ?></td>
+		<td><input type="checkbox" name="chat_read_receipt" value="Y" <?= Config::isEnabled('chat_read_receipt') ? 'checked' : '' ?>></td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_CHAT_TYPING') ?></td>
+		<td>
+			<input type="checkbox" name="chat_typing_status" value="Y" <?= Config::isEnabled('chat_typing_status') ? 'checked' : '' ?>>
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_CHAT_TYPING_HINT') ?></div>
 		</td>
 	</tr>
 	<tr>

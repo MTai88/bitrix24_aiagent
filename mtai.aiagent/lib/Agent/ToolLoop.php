@@ -29,6 +29,8 @@ final class ToolLoop
 	 * @param int $userId от чьего имени выполняются действия в CRM
 	 * @param string $model переопределение модели (пусто = из настроек)
 	 * @param Manager|null $mcp агрегатор инструментов MCP (null = без MCP)
+	 * @param callable|null $onProgress вызывается на каждой итерации цикла
+	 *   (чат-агент шлёт им индикатор «бот печатает»); активность БП не передаёт
 	 * @return array{answer: string, error: ?string}
 	 */
 	public static function run(
@@ -38,6 +40,7 @@ final class ToolLoop
 		int $userId,
 		string $model = '',
 		?Manager $mcp = null,
+		?callable $onProgress = null,
 	): array {
 		$options = trim($model) !== '' ? ['model' => trim($model)] : [];
 
@@ -45,10 +48,10 @@ final class ToolLoop
 		{
 			if ($provider->supportsTools())
 			{
-				return ['answer' => self::runNative($messages, $provider, $executor, $userId, $options, $mcp), 'error' => null];
+				return ['answer' => self::runNative($messages, $provider, $executor, $userId, $options, $mcp, $onProgress), 'error' => null];
 			}
 
-			return ['answer' => self::runJsonProtocol($messages, $provider, $executor, $userId, $options), 'error' => null];
+			return ['answer' => self::runJsonProtocol($messages, $provider, $executor, $userId, $options, $onProgress), 'error' => null];
 		}
 		catch (\Mtai\Aiagent\LlmException $e)
 		{
@@ -56,7 +59,7 @@ final class ToolLoop
 		}
 	}
 
-	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?Manager $mcp = null): string
+	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?Manager $mcp = null, ?callable $onProgress = null): string
 	{
 		$tools = Tools::definitions();
 		if ($mcp !== null)
@@ -66,6 +69,8 @@ final class ToolLoop
 
 		for ($i = 0; $i < self::MAX_ITERATIONS; $i++)
 		{
+			$onProgress !== null && $onProgress();
+
 			$answer = $provider->chat($messages, $tools, $options);
 
 			if ($answer['toolCalls'] === [])
@@ -104,10 +109,12 @@ final class ToolLoop
 		return 'Выполнил действия, но ответ не сформировался — уточните запрос, пожалуйста.';
 	}
 
-	private static function runJsonProtocol(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = []): string
+	private static function runJsonProtocol(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?callable $onProgress = null): string
 	{
 		for ($i = 0; $i < self::MAX_ITERATIONS; $i++)
 		{
+			$onProgress !== null && $onProgress();
+
 			$answer = $provider->chat($messages, [], $options);
 			$content = trim((string)($answer['content'] ?? ''));
 
