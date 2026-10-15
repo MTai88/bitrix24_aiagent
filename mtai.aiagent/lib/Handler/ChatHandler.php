@@ -206,6 +206,16 @@ final class ChatHandler
 		{
 			$system .= "\n\n" . $this->jsonProtocolPrompt($mcp);
 		}
+		elseif ($mcp !== null && $mcp->forPrompt() !== '')
+		{
+			// Нативный function calling: без явного указания модель
+			// игнорирует mcp_*-инструменты среди CRM-тулсов (поймано
+			// на GigaChat + DeepWiki).
+			$system .= "\n\nУ тебя есть внешние инструменты MCP (имена с префиксом mcp_): "
+				. 'они обращаются к системам вне портала (документация библиотек, '
+				. 'внешние сервисы). Когда вопрос явно про внешнюю систему/документацию — '
+				. 'вызывай именно их, а не CRM-инструменты и не kb_search.';
+		}
 
 		$messages = [['role' => 'system', 'content' => $system]];
 		foreach ($this->memory->load($key) as $item)

@@ -55,17 +55,28 @@ final class Manager
 			}
 
 			$schema = (array)($meta['inputSchema'] ?? []);
+			if ($schema !== [])
+			{
+				// Ассоц-массивы → object, списки (required/enum) — как есть,
+				// union-типы (anyOf/oneOf) — сужение до простой формы:
+				// OpenAI-совместимые провайдеры это проглатывают, а вот
+				// строгие валидаторы (GigaChat functions) отвечают 422.
+				$schema = self::schemaToObject(self::normalizeSchema($schema));
+			}
+			else
+			{
+				$schema = (object)[
+					'type' => 'object',
+					'properties' => (object)[],
+				];
+			}
+
 			$result[] = [
 				'type' => 'function',
 				'function' => [
 					'name' => $llmName,
 					'description' => (string)($meta['description'] ?? ''),
-					// Ассоц-массивы → object, списки (required/enum) —
-					// как есть: OpenAI ждёт объект верхнего уровня.
-					'parameters' => $schema !== [] ? self::schemaToObject($schema) : (object)[
-						'type' => 'object',
-						'properties' => (object)[],
-					],
+					'parameters' => $schema,
 				],
 			];
 		}
@@ -83,6 +94,75 @@ final class Manager
 		$decoded = json_decode((string)json_encode($schema, JSON_UNESCAPED_UNICODE));
 
 		return is_object($decoded) ? $decoded : (object)$schema;
+	}
+
+	/**
+	 * Нормализация схемы под валидаторы function calling (GigaChat и др.
+	 * требуют простой JSON Schema: type-строка, без anyOf/oneOf).
+	 * - anyOf/oneOf → первая ветвь (предпочитаем строковую), description
+	 *   свойства сохраняется;
+	 * - allOf → слияние подсхем;
+	 * - отсутствующий type → "string";
+	 * - рекурсивно по properties/items.
+	 * Данные для вызова инструмента не портятся: MCP-сервер принимает
+	 * аргументы как есть, сужение union-типов лишь ограничивает выбор
+	 * модели самой простой формой.
+	 */
+	private static function normalizeSchema(array $schema): array
+	{
+		foreach (['anyOf', 'oneOf'] as $unionKey)
+		{
+			if (isset($schema[$unionKey]) && is_array($schema[$unionKey]) && $schema[$unionKey] !== [])
+			{
+				$branches = $schema[$unionKey];
+				unset($schema[$unionKey]);
+
+				$pick = null;
+				foreach ($branches as $branch)
+				{
+					if (is_array($branch) && ($branch['type'] ?? null) === 'string')
+					{
+						$pick = $branch;
+
+						break;
+					}
+				}
+				$pick = $pick ?? (array)($branches[0] ?? []);
+
+				$description = $schema['description'] ?? null;
+				$schema = array_merge($schema, $pick);
+				if ($description !== null && !isset($schema['description']))
+				{
+					$schema['description'] = $description;
+				}
+			}
+		}
+
+		if (isset($schema['allOf']) && is_array($schema['allOf']))
+		{
+			$parts = $schema['allOf'];
+			unset($schema['allOf']);
+			foreach ($parts as $part)
+			{
+				$schema = array_merge($schema, self::normalizeSchema((array)$part));
+			}
+		}
+
+		if (!isset($schema['type']))
+		{
+			$schema['type'] = 'string';
+		}
+
+		foreach ((array)($schema['properties'] ?? []) as $prop => $sub)
+		{
+			$schema['properties'][$prop] = self::normalizeSchema((array)$sub);
+		}
+		if (isset($schema['items']) && is_array($schema['items']))
+		{
+			$schema['items'] = self::normalizeSchema($schema['items']);
+		}
+
+		return $schema;
 	}
 
 	/** Текстовое описание для JSON-протокола (модели без function calling). */
