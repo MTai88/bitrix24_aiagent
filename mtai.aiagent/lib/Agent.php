@@ -38,6 +38,21 @@ final class Agent
 		return '\\' . static::class . '::processQueue();';
 	}
 
+	/** Выполнить назревшие отложенные задания (schedule_task). */
+	public static function runSchedule(): string
+	{
+		try
+		{
+			(new Schedule\Scheduler())->tick();
+		}
+		catch (\Throwable $e)
+		{
+			Logger::error('schedule', 'Agent runSchedule: ' . $e->getMessage());
+		}
+
+		return '\\' . static::class . '::runSchedule();';
+	}
+
 	/** Очистка старых записей журнала. */
 	public static function cleanLog(): string
 	{

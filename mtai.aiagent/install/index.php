@@ -29,6 +29,7 @@ class mtai_aiagent extends CModule
 		'mtai_aiagent_chunk',
 		'mtai_aiagent_conversation',
 		'mtai_aiagent_job',
+		'mtai_aiagent_schedule',
 		'mtai_aiagent_log',
 	];
 
@@ -122,6 +123,23 @@ class mtai_aiagent extends CModule
 				DATE_DONE DATETIME NULL,
 				PRIMARY KEY (ID),
 				KEY IX_MTAA_JOB_PICK (STATUS, ID)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+			// Отложенные задания сотрудников (schedule_task)
+			"CREATE TABLE IF NOT EXISTS mtai_aiagent_schedule (
+				ID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+				USER_ID INT UNSIGNED NOT NULL,
+				DIALOG_ID VARCHAR(32) NOT NULL DEFAULT '',
+				INSTRUCTION TEXT NOT NULL,
+				RUN_AT DATETIME NOT NULL,
+				STATUS VARCHAR(16) NOT NULL DEFAULT 'pending',
+				ATTEMPTS INT UNSIGNED NOT NULL DEFAULT 0,
+				CLAIM VARCHAR(32) NOT NULL DEFAULT '',
+				CLAIM_AT DATETIME NULL,
+				ERROR TEXT NULL,
+				DATE_CREATE DATETIME NOT NULL,
+				DATE_DONE DATETIME NULL,
+				PRIMARY KEY (ID),
+				KEY IX_MTAA_SCHED_PICK (STATUS, RUN_AT)
 			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 			// Журнал запросов к LLM и REST
 			"CREATE TABLE IF NOT EXISTS mtai_aiagent_log (

@@ -59,6 +59,18 @@ final class Store
 		$this->save($key, []);
 	}
 
+	/** Снять последнее сообщение указанной роли (откат перед ретраем). */
+	public function trimLast(string $key, string $role): void
+	{
+		$messages = $this->load($key);
+		$last = $messages === [] ? null : end($messages);
+		if ($last !== null && ($last['role'] ?? '') === $role)
+		{
+			array_pop($messages);
+			$this->save($key, $messages);
+		}
+	}
+
 	private function save(string $key, array $messages): void
 	{
 		$existing = ConversationTable::getList([

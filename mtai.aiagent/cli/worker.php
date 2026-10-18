@@ -5,6 +5,9 @@
  * Примеры (из PHP-контейнера стенда):
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php fetch
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php process
+ *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php schedule
+ *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php tasks
+ *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php agents
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php loop
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php bot status|register|update|unregister
  *   docker compose exec php php local/modules/mtai.aiagent/cli/worker.php kb list|reindex|reindex-all|delete ID
@@ -68,6 +71,36 @@ try
 
 		case 'process':
 			$out('Processed jobs: ' . (new Processor())->tick());
+			break;
+
+		case 'schedule':
+			$out('Scheduled tasks processed: ' . (new \Mtai\Aiagent\Schedule\Scheduler())->tick());
+			break;
+
+		case 'tasks':
+			$rows = \Mtai\Aiagent\Orm\ScheduleTable::getList([
+				'order' => ['ID' => 'DESC'],
+				'limit' => 20,
+			])->fetchAll();
+			foreach ($rows as $row)
+			{
+				$out(sprintf(
+					'#%d user=%s [%s] run_at=%s attempts=%d %s',
+					$row['ID'],
+					$row['USER_ID'],
+					$row['STATUS'],
+					$row['RUN_AT'] instanceof \Bitrix\Main\Type\DateTime ? $row['RUN_AT']->format('d.m.Y H:i') : (string)$row['RUN_AT'],
+					$row['ATTEMPTS'],
+					$row['ERROR'] ? 'error: ' . mb_substr((string)$row['ERROR'], 0, 120) : ''
+				));
+			}
+			break;
+
+		case 'agents':
+			foreach (\Mtai\Aiagent\EventHandler::ensureAgents() as $line)
+			{
+				$out($line);
+			}
 			break;
 
 		case 'loop':
@@ -203,10 +236,11 @@ try
 			$out('last fetch: ' . (Config::get('last_fetch_time') ?: '—'));
 			$out('llm provider: ' . Config::get('llm_provider'));
 			$out('embedding provider: ' . Config::get('llm_embedding_provider'));
+			$out('last schedule tick: ' . (Config::get('last_schedule_time') ?: '—'));
 			break;
 
 		default:
-			$out('Usage: worker.php fetch|process|loop|bot <cmd>|kb <cmd> [id]|jobs|log <n>|rest METHOD JSON|tool NAME JSON [userId]|options');
+			$out('Usage: worker.php fetch|process|schedule|loop|tasks|agents|bot <cmd>|kb <cmd> [id]|jobs|log <n>|rest METHOD JSON|tool NAME JSON [userId]|options');
 	}
 }
 catch (\Throwable $e)

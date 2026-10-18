@@ -138,14 +138,58 @@ final class ChatHandler
 		$key = 'im:' . $botId . ':' . $userId;
 		$this->memory->append($key, 'user', $text);
 
-		$reply = $this->converse($key, $text, $userId, (string)($user['name'] ?? ''), $refreshTyping);
+		$result = $this->converse($key, $userId, (string)($user['name'] ?? ''), $refreshTyping);
+		$reply = $result['error'] !== null
+			? 'AI-агент временно недоступен: ' . $result['error']
+			: $result['answer'];
 
 		$this->send($botId, $dialogId, $reply);
 		$this->memory->append($key, 'assistant', $reply);
 	}
 
+	/**
+	 * Исполнение отложенного задания (lib/Schedule): поручение выполняется
+	 * всеми доступными инструментами от имени сотрудника, результат
+	 * докладывается сообщением в его чат с ботом. При сбое инструкция
+	 * снимается из памяти — ретрай планировщика не должен дублировать её
+	 * в истории.
+	 *
+	 * @return array{answer: string, error: ?string}
+	 */
+	public function runScheduled(int $userId, string $dialogId, string $instruction): array
+	{
+		$botId = Manager::botUserId();
+		$key = 'im:' . $botId . ':' . $userId;
+
+		$this->memory->append($key, 'user', $instruction);
+
+		$result = $this->converse($key, $userId, $this->resolveUserName($userId));
+		if ($result['error'] !== null)
+		{
+			$this->memory->trimLast($key, 'user');
+
+			return $result;
+		}
+
+		$this->send($botId, $dialogId, $result['answer']);
+		$this->memory->append($key, 'assistant', $result['answer']);
+
+		return $result;
+	}
+
+	private function resolveUserName(int $userId): string
+	{
+		$user = \Bitrix\Main\UserTable::getRowById($userId);
+		if (!$user)
+		{
+			return '';
+		}
+
+		return trim($user['NAME'] . ' ' . $user['LAST_NAME']);
+	}
+
 	/** Диалог с LLM с исполнением инструментов. */
-	private function converse(string $key, string $text, int $userId, string $userName = '', ?callable $onProgress = null): string
+	private function converse(string $key, int $userId, string $userName = '', ?callable $onProgress = null): array
 	{
 		$provider = Factory::create();
 
@@ -164,11 +208,7 @@ final class ChatHandler
 
 		$messages = $this->buildMessages($key, $provider->supportsTools(), $userName, $userId, $mcp);
 
-		$result = ToolLoop::run($messages, $provider, $executor, $userId, '', $mcp, $onProgress);
-
-		return $result['error'] !== null
-			? 'AI-агент временно недоступен: ' . $result['error']
-			: $result['answer'];
+		return ToolLoop::run($messages, $provider, $executor, $userId, '', $mcp, $onProgress);
 	}
 
 	private function buildMessages(string $key, bool $nativeTools, string $userName = '', int $userId = 0, ?\Mtai\Aiagent\Mcp\Manager $mcp = null): array

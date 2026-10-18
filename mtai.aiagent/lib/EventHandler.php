@@ -8,6 +8,14 @@ use Bitrix\Main\Loader;
 /** Регистрация обработчиков событий и агентов модуля. */
 final class EventHandler
 {
+	/** Агенты модуля: имя => интервал, сек. Единый источник для install и CLI worker.php agents. */
+	private const AGENTS = [
+		'\\Mtai\\Aiagent\\Agent::fetchEvents();' => 60,
+		'\\Mtai\\Aiagent\\Agent::processQueue();' => 60,
+		'\\Mtai\\Aiagent\\Agent::runSchedule();' => 60,
+		'\\Mtai\\Aiagent\\Agent::cleanLog();' => 86400,
+	];
+
 	public static function register(): void
 	{
 		$manager = EventManager::getInstance();
@@ -19,9 +27,42 @@ final class EventHandler
 			'main', 'OnBuildGlobalMenu', $module, $class, 'onBuildGlobalMenu'
 		);
 
-		self::addAgent('\\Mtai\\Aiagent\\Agent::fetchEvents();', 60);
-		self::addAgent('\\Mtai\\Aiagent\\Agent::processQueue();', 60);
-		self::addAgent('\\Mtai\\Aiagent\\Agent::cleanLog();', 86400);
+		foreach (self::AGENTS as $name => $interval)
+		{
+			self::addAgent($name, $interval);
+		}
+	}
+
+	/**
+	 * Идемпотентная довешка недостающих агентов — для уже установленных
+	 * модулей (новые агенты появляются при обновлении кода без переустановки).
+	 *
+	 * @return string[] строки отчёта
+	 */
+	public static function ensureAgents(): array
+	{
+		$existing = [];
+		$res = \CAgent::GetList(['ID' => 'ASC'], ['MODULE_ID' => Config::MODULE_ID]);
+		while ($row = $res->Fetch())
+		{
+			$existing[(string)$row['NAME']] = true;
+		}
+
+		$report = [];
+		foreach (self::AGENTS as $name => $interval)
+		{
+			if (isset($existing[$name]))
+			{
+				$report[] = 'exists: ' . $name;
+
+				continue;
+			}
+
+			$result = \CAgent::AddAgent($name, Config::MODULE_ID, 'N', $interval);
+			$report[] = ($result === false ? 'FAILED: ' : 'added: ') . $name;
+		}
+
+		return $report;
 	}
 
 	public static function unregister(): void
