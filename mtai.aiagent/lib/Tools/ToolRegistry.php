@@ -35,15 +35,25 @@ final class ToolRegistry
 		foreach (self::load() as $name => $meta)
 		{
 			$cfg = $meta['config'];
+			$parameters = (array)($cfg['parameters'] ?? ['type' => 'object']);
+			if (!isset($parameters['properties']))
+			{
+				// Строгие валидаторы function calling (GigaChat) отклоняют схему
+				// без поля properties: весь батч уходит 500/422. Пустой объект
+				// вместо отсутствующего поля — валидная «беспараметрическая» схема.
+				$parameters['properties'] = new \stdClass();
+			}
+			elseif ($parameters['properties'] === [])
+			{
+				// пустой массив сериализовался бы в [] — тоже отказ
+				$parameters['properties'] = new \stdClass();
+			}
 			$result[] = [
 				'type' => 'function',
 				'function' => [
 					'name' => $cfg['name'] ?? $name,
 					'description' => (string)($cfg['description'] ?? ''),
-					'parameters' => (object)($cfg['parameters'] ?? (object)[
-						'type' => 'object',
-						'properties' => (object)[],
-					]),
+					'parameters' => (object)$parameters,
 				],
 			];
 		}
