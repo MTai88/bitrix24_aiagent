@@ -120,9 +120,11 @@ final class YandexProvider implements ProviderInterface
 			throw new LlmException('YandexGPT API key is not configured');
 		}
 
+		$timeout = Config::httpTimeout();
 		$http = new HttpClient([
-			'socketTimeout' => Config::getInt('llm_timeout', 45),
-			'streamTimeout' => Config::getInt('llm_timeout', 45),
+			'connectTimeout' => $timeout,
+			'socketTimeout' => $timeout,
+			'streamTimeout' => $timeout,
 			'version' => '1.1',
 		]);
 		$http->setHeader('Content-Type', 'application/json');

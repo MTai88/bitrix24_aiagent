@@ -57,6 +57,42 @@ final class Config
 		return (int)self::get($name, (string)$default);
 	}
 
+	/** Подмена llm_timeout на время одного вызова (поиск в шапке и т.п.). */
+	private static ?int $httpTimeoutOverride = null;
+
+	/**
+	 * Таймаут HTTP к LLM: временная подмена, иначе опция llm_timeout.
+	 */
+	public static function httpTimeout(): int
+	{
+		if (self::$httpTimeoutOverride !== null && self::$httpTimeoutOverride > 0)
+		{
+			return self::$httpTimeoutOverride;
+		}
+
+		$value = self::getInt('llm_timeout', 45);
+
+		return $value > 0 ? $value : 45;
+	}
+
+	/**
+	 * Выполняет $callback с укороченным HTTP-таймаутом провайдеров LLM.
+	 * Опция llm_timeout в базе не меняется.
+	 */
+	public static function withHttpTimeout(int $seconds, callable $callback): mixed
+	{
+		$previous = self::$httpTimeoutOverride;
+		self::$httpTimeoutOverride = max(1, $seconds);
+		try
+		{
+			return $callback();
+		}
+		finally
+		{
+			self::$httpTimeoutOverride = $previous;
+		}
+	}
+
 	/** Обычная опция как float. */
 	public static function getFloat(string $name, float $default = 0.0): float
 	{
