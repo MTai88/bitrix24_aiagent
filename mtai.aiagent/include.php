@@ -64,6 +64,7 @@ Loader::registerAutoLoadClasses(
 		'Mtai\\Aiagent\\Handler\\CommandHandler' => 'lib/Handler/CommandHandler.php',
 		'Mtai\\Aiagent\\Agent\\Runner' => 'lib/Agent/Runner.php',
 		'Mtai\\Aiagent\\Chat\\Markdown' => 'lib/Chat/Markdown.php',
+		'Mtai\\Aiagent\\Chat\\IncomingFiles' => 'lib/Chat/IncomingFiles.php',
 		'Mtai\\Aiagent\\Chat\\VoiceMessage' => 'lib/Chat/VoiceMessage.php',
 		'Mtai\\Aiagent\\Chat\\VoicePublisher' => 'lib/Chat/VoicePublisher.php',
 		'Mtai\\Aiagent\\Controller\\Voice' => 'lib/Controller/Voice.php',

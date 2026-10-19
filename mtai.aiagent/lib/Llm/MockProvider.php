@@ -34,6 +34,11 @@ final class MockProvider implements ProviderInterface
 		return false;
 	}
 
+	public function supportsVision(): bool
+	{
+		return false;
+	}
+
 	public function supportsEmbedding(): bool
 	{
 		return true;

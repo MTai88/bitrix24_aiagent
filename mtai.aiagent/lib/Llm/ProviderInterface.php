@@ -6,7 +6,10 @@ namespace Mtai\Aiagent\Llm;
  * Контракт LLM-провайдера.
  *
  * Сообщения — массивы вида ['role' => 'system|user|assistant|tool',
- * 'content' => string, ...]. Результат чата:
+ * 'content' => string, ...]. У текущего пользовательского сообщения
+ * может быть ключ images (mime + base64) — его видит только провайдер
+ * с supportsVision(), в историю диалога байты не пишутся.
+ * Результат чата:
  * [
  *   'content' => string|null,         // текст ответа
  *   'toolCalls' => [                  // запросы инструментов (OpenAI-формат)
@@ -24,6 +27,9 @@ interface ProviderInterface
 
 	/** Поддержка нативного function calling (tools). */
 	public function supportsTools(): bool;
+
+	/** Модель принимает изображение в запросе (OpenAI image_url). */
+	public function supportsVision(): bool;
 
 	/**
 	 * Диалог с моделью.

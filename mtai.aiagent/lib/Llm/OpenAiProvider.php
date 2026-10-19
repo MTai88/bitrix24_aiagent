@@ -30,6 +30,11 @@ class OpenAiProvider implements ProviderInterface
 		return true;
 	}
 
+	public function supportsVision(): bool
+	{
+		return true;
+	}
+
 	public function supportsEmbedding(): bool
 	{
 		return Config::get('llm_embedding_model', '') !== '';
@@ -76,7 +81,48 @@ class OpenAiProvider implements ProviderInterface
 	 */
 	protected function prepareMessages(array $messages): array
 	{
-		return $messages;
+		if (!$this->supportsVision())
+		{
+			return $messages;
+		}
+
+		$out = [];
+		foreach ($messages as $message)
+		{
+			$message = (array)$message;
+			$images = (array)($message['images'] ?? []);
+			unset($message['images']);
+			if ($images !== [] && ($message['role'] ?? '') === 'user')
+			{
+				$parts = [];
+				$text = trim((string)($message['content'] ?? ''));
+				if ($text !== '')
+				{
+					$parts[] = ['type' => 'text', 'text' => $text];
+				}
+				foreach ($images as $image)
+				{
+					$image = (array)$image;
+					$base64 = (string)($image['base64'] ?? '');
+					if ($base64 === '')
+					{
+						continue;
+					}
+					$mime = (string)($image['mime'] ?? 'image/png');
+					$parts[] = [
+						'type' => 'image_url',
+						'image_url' => ['url' => 'data:' . $mime . ';base64,' . $base64],
+					];
+				}
+				if ($parts !== [])
+				{
+					$message['content'] = $parts;
+				}
+			}
+			$out[] = $message;
+		}
+
+		return $out;
 	}
 
 	/** Параметры запроса для инструментов: OpenAI-формат tools + tool_choice. */

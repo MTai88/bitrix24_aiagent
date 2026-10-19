@@ -50,6 +50,11 @@ class GigaChatProvider extends OpenAiProvider
 		return true;
 	}
 
+	public function supportsVision(): bool
+	{
+		return false;
+	}
+
 	/**
 	 * Эмбеддинги доступны не на всех тарифах GigaChat API: модель указывается
 	 * в опции llm_embedding_model (актуальные: Embeddings, EmbeddingsGigaR;
@@ -94,6 +99,7 @@ class GigaChatProvider extends OpenAiProvider
 		foreach ($messages as $item)
 		{
 			$message = (array)$item;
+			unset($message['images']);
 			$role = (string)($message['role'] ?? '');
 
 			if ($role === 'assistant' && isset($message['tool_calls']))
