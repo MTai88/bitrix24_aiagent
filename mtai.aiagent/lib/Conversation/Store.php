@@ -39,11 +39,50 @@ final class Store
 		return is_array($messages) ? $messages : [];
 	}
 
-	/** Добавить сообщение в историю, обрезав до history_depth записей. */
-	public function append(string $key, string $role, string $content): void
+	/**
+	 * История для модели: метки сущностей дописываются к тексту ответа,
+	 * в базе остаётся чистый текст, который ушёл сотруднику.
+	 */
+	public static function forModel(array $stored): array
 	{
+		$messages = [];
+		foreach ($stored as $item)
+		{
+			if (!is_array($item))
+			{
+				continue;
+			}
+			$content = (string)($item['content'] ?? '');
+			$refs = array_values(array_filter((array)($item['refs'] ?? []), static fn($ref): bool => trim((string)$ref) !== ''));
+			if ($refs !== [])
+			{
+				$content .= "\n(сущности этого ответа: " . implode('; ', $refs) . ')';
+			}
+			$messages[] = [
+				'role' => (string)($item['role'] ?? 'user'),
+				'content' => $content,
+			];
+		}
+
+		return $messages;
+	}
+
+	/**
+	 * Добавить сообщение в историю, обрезав до history_depth записей.
+	 * refs — короткие метки сущностей («deal #12 «Ромашка»»), чтобы следующая
+	 * реплика («добавь в неё комментарий») видела, о чём шла речь.
+	 */
+	public function append(string $key, string $role, string $content, array $refs = []): void
+	{
+		$message = ['role' => $role, 'content' => $content];
+		$refs = array_values(array_filter(array_map(static fn($ref): string => trim((string)$ref), $refs)));
+		if ($refs !== [])
+		{
+			$message['refs'] = $refs;
+		}
+
 		$messages = $this->load($key);
-		$messages[] = ['role' => $role, 'content' => $content];
+		$messages[] = $message;
 
 		$depth = max(2, Config::getInt('history_depth', 12));
 		if (count($messages) > $depth)

@@ -24,6 +24,7 @@ final class Scheduler
 	/** Тик агента: обработать пачку назревших заданий. Возвращает число обработанных. */
 	public function tick(): int
 	{
+		ScheduleTable::ensureRepeatColumn();
 		$this->releaseStale();
 
 		$claim = bin2hex(random_bytes(8));
@@ -34,7 +35,7 @@ final class Scheduler
 		}
 
 		$tasks = ScheduleTable::getList([
-			'select' => ['ID', 'USER_ID', 'DIALOG_ID', 'INSTRUCTION', 'ATTEMPTS'],
+			'select' => ['ID', 'USER_ID', 'DIALOG_ID', 'INSTRUCTION', 'REPEAT_RULE', 'RUN_AT', 'ATTEMPTS'],
 			'filter' => [
 				'=CLAIM' => $claim,
 				'=STATUS' => ScheduleTable::STATUS_PROCESSING,
@@ -65,6 +66,23 @@ final class Scheduler
 			if ($result['error'] !== null)
 			{
 				$this->fail($task, $result['error']);
+
+				return;
+			}
+
+			$repeat = (string)($task['REPEAT_RULE'] ?? '');
+			$next = $this->nextRun($task, $repeat);
+			if ($next !== null)
+			{
+				ScheduleTable::update($task['ID'], [
+					'STATUS' => ScheduleTable::STATUS_PENDING,
+					'CLAIM' => '',
+					'ERROR' => null,
+					'ATTEMPTS' => 0,
+					'RUN_AT' => new DateTime(date('Y-m-d H:i:s', $next), 'Y-m-d H:i:s'),
+					'DATE_DONE' => null,
+				]);
+				Logger::info('schedule', "Task #{$task['ID']} done, next " . date('Y-m-d H:i', $next) . " ({$repeat})");
 
 				return;
 			}
@@ -110,6 +128,54 @@ final class Scheduler
 		Logger::error('schedule', "Task #{$task['ID']} permanently failed: {$error}");
 
 		$this->notifyAdmin($task, $error);
+	}
+
+	/**
+	 * Следующий запуск повторяющегося задания, строго в будущем.
+	 * null — задание разовое или правило неизвестно.
+	 */
+	private function nextRun(array $task, string $repeat): ?int
+	{
+		if (!in_array($repeat, ['daily', 'weekdays', 'weekly'], true))
+		{
+			return null;
+		}
+
+		$base = $task['RUN_AT'] ?? null;
+		$timestamp = $base instanceof DateTime ? $base->getTimestamp() : strtotime((string)$base);
+		if ($timestamp === false || $timestamp <= 0)
+		{
+			$timestamp = time();
+		}
+
+		$guard = 0;
+		do
+		{
+			$timestamp = match ($repeat)
+			{
+				'weekly' => strtotime('+7 days', $timestamp),
+				'weekdays' => $this->nextWeekday($timestamp),
+				default => strtotime('+1 day', $timestamp),
+			};
+			$guard++;
+		}
+		while ($timestamp !== false && $timestamp <= time() && $guard < 40);
+
+		return ($timestamp !== false && $timestamp > time()) ? $timestamp : null;
+	}
+
+	/** Следующий будний день, время суток сохраняется. */
+	private function nextWeekday(int $timestamp): int
+	{
+		$next = strtotime('+1 day', $timestamp);
+		$guard = 0;
+		while ($next !== false && (int)date('N', $next) >= 6 && $guard < 3)
+		{
+			$next = strtotime('+1 day', $next);
+			$guard++;
+		}
+
+		return (int)$next;
 	}
 
 	/**

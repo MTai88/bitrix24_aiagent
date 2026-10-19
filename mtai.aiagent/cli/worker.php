@@ -78,6 +78,7 @@ try
 			break;
 
 		case 'tasks':
+			\Mtai\Aiagent\Orm\ScheduleTable::ensureRepeatColumn();
 			$rows = \Mtai\Aiagent\Orm\ScheduleTable::getList([
 				'order' => ['ID' => 'DESC'],
 				'limit' => 20,

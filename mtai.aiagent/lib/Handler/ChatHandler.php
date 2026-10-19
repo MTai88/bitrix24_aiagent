@@ -144,7 +144,7 @@ final class ChatHandler
 			: $result['answer'];
 
 		$this->send($botId, $dialogId, $reply);
-		$this->memory->append($key, 'assistant', $reply);
+		$this->memory->append($key, 'assistant', $reply, $result['refs'] ?? []);
 	}
 
 	/**
@@ -172,7 +172,7 @@ final class ChatHandler
 		}
 
 		$this->send($botId, $dialogId, $result['answer']);
-		$this->memory->append($key, 'assistant', $result['answer']);
+		$this->memory->append($key, 'assistant', $result['answer'], $result['refs'] ?? []);
 
 		return $result;
 	}
@@ -226,6 +226,7 @@ final class ChatHandler
 			$system .= ' Обращается сотрудник ' . $userName . ' (ID ' . $userId . ')'
 				. ' — действия в CRM и задачах выполняй от его имени.';
 		}
+		$system = $this->withToolRules($system);
 
 		// Адрес портала и шаблоны ссылок: без них модель выдумывает URL
 		// вида https://example.com/crm/deal/view/456/.
@@ -258,12 +259,30 @@ final class ChatHandler
 		}
 
 		$messages = [['role' => 'system', 'content' => $system]];
-		foreach ($this->memory->load($key) as $item)
+		foreach (Store::forModel($this->memory->load($key)) as $item)
 		{
-			$messages[] = ['role' => $item['role'], 'content' => $item['content']];
+			$messages[] = $item;
 		}
 
 		return $messages;
+	}
+
+	/**
+	 * Правила выбора инструментов. Дописываются, если сохранённый промпт
+	 * портала ещё без них (настройка не сброшена к новому умолчанию).
+	 */
+	private function withToolRules(string $system): string
+	{
+		if (str_contains($system, 'crm_activity_add'))
+		{
+			return $system;
+		}
+
+		return $system . "\n\nПравила: если поиск вернул несколько записей — перечисли их и спроси, какую выбрать, не угадывай. "
+			. 'Перед созданием контакта, компании или сделки проверь дубль через crm_find_entities (телефон и email тоже). '
+			. 'Дело в карточке CRM (звонок, встреча с клиентом) — crm_activity_add; задача сотруднику — crm_create_task. '
+			. 'Ссылку на карточку бери из поля url результата, не выдумывай. '
+			. '«Что у меня сегодня» — my_day. Регулярное поручение («каждое утро») — schedule_task с repeat, действие сразу не выполняй.';
 	}
 
 	private function weekdayRu(int $isoNumber): string

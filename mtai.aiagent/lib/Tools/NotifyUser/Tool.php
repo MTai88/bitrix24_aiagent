@@ -21,11 +21,12 @@ class Tool
 			return ['error' => 'message is empty'];
 		}
 
-		[$recipientId, $error] = $this->resolveRecipient($args, $userId, $ctx);
-		if ($error !== null)
+		$recipient = $this->resolveRecipient($args, $userId, $ctx);
+		if (isset($recipient['error']))
 		{
-			return ['error' => $error];
+			return $recipient;
 		}
+		$recipientId = (int)$recipient['id'];
 
 		$params = [
 			'USER_ID' => $recipientId,
@@ -49,40 +50,24 @@ class Tool
 		];
 	}
 
-	/** @return array{0: int, 1: ?string} [recipientId, error] */
+	/** @return array{id?: int, error?: string, candidates?: array} */
 	private function resolveRecipient(array $args, int $userId, Context $ctx): array
 	{
 		if (!empty($args['user_id']))
 		{
-			return [(int)$args['user_id'], null];
+			return ['id' => (int)$args['user_id']];
 		}
 
 		if (!empty($args['user_name']))
 		{
-			// LOGIN не входит в разрешённые поля user.search — только FIND
-			// (полнотекст по имени, фамилии, логину и email).
-			[$ok, $result] = $ctx->restSafe('user.search', [
-				'FILTER' => ['FIND' => (string)$args['user_name']],
-			]);
-			if (!$ok)
-			{
-				return [0, 'user.search: ' . $result];
-			}
-
-			$found = (array)($result[0] ?? []);
-			if (!isset($found['ID']))
-			{
-				return [0, 'user not found: ' . $args['user_name']];
-			}
-
-			return [(int)$found['ID'], null];
+			return $ctx->resolveUser((string)$args['user_name']);
 		}
 
 		if ($userId <= 0)
 		{
-			return [0, 'no recipient: pass user_id or user_name'];
+			return ['error' => 'no recipient: pass user_id or user_name'];
 		}
 
-		return [$userId, null];
+		return ['id' => $userId];
 	}
 }

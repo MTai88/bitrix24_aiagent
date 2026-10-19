@@ -49,12 +49,21 @@ class Tool
 			return ['error' => 'datetime is too far (max ' . self::MAX_HORIZON_DAYS . ' days)'];
 		}
 
+		$repeat = strtolower(trim((string)($args['repeat'] ?? '')));
+		if ($repeat !== '' && !in_array($repeat, ['daily', 'weekdays', 'weekly'], true))
+		{
+			return ['error' => 'repeat must be daily, weekdays or weekly'];
+		}
+
+		ScheduleTable::ensureRepeatColumn();
+
 		// В приватном чате с ботом dialogId = ID собеседника — результат
 		// выполнения уйдёт туда же.
 		$row = ScheduleTable::add([
 			'USER_ID' => $userId,
 			'DIALOG_ID' => (string)$userId,
 			'INSTRUCTION' => $instruction,
+			'REPEAT_RULE' => $repeat,
 			'RUN_AT' => new DateTime(date('Y-m-d H:i:s', $timestamp), 'Y-m-d H:i:s'),
 			'STATUS' => ScheduleTable::STATUS_PENDING,
 		]);
@@ -63,6 +72,7 @@ class Tool
 			'ok' => true,
 			'task_id' => (int)$row->getId(),
 			'run_at' => date('Y-m-d H:i', $timestamp),
+			'repeat' => $repeat,
 		];
 	}
 

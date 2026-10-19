@@ -10,8 +10,10 @@ class Tool
 {
 	public function execute(array $args, int $userId, Context $ctx): array
 	{
+		ScheduleTable::ensureRepeatColumn();
+
 		$rows = ScheduleTable::getList([
-			'select' => ['ID', 'INSTRUCTION', 'RUN_AT'],
+			'select' => ['ID', 'INSTRUCTION', 'RUN_AT', 'REPEAT_RULE'],
 			'filter' => [
 				'=USER_ID' => $userId,
 				'=STATUS' => ScheduleTable::STATUS_PENDING,
@@ -26,6 +28,7 @@ class Tool
 			$tasks[] = [
 				'task_id' => (int)$row['ID'],
 				'run_at' => $row['RUN_AT']->format('Y-m-d H:i'),
+				'repeat' => (string)($row['REPEAT_RULE'] ?? ''),
 				'instruction' => mb_substr((string)$row['INSTRUCTION'], 0, 300),
 			];
 		}

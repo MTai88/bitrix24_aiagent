@@ -8,18 +8,15 @@ class Tool
 {
 	public function execute(array $args, int $userId, Context $ctx): array
 	{
-		$result = $ctx->restCall('user.search', ['FILTER' => ['NAME' => (string)($args['full_name'] ?? '')]]);
-
-		$found = (array)($result[0] ?? []);
-		if (!isset($found['ID']))
+		$resolved = $ctx->resolveUser((string)($args['full_name'] ?? ''));
+		if (!isset($resolved['id']))
 		{
-			return ['error' => 'user not found'];
+			return $resolved;
 		}
 
 		return [
-			'id' => (int)$found['ID'],
-			'name' => (string)($found['NAME'] ?? '') . ' ' . (string)($found['LAST_NAME'] ?? ''),
-			'email' => (string)($found['EMAIL'] ?? ''),
+			'id' => (int)$resolved['id'],
+			'name' => (string)($resolved['name'] ?? ''),
 		];
 	}
 }

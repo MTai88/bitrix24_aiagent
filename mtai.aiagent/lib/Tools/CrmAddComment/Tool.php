@@ -32,9 +32,15 @@ class Tool
 				'ENTITY_TYPE' => $ctx::bindingPrefix($type),
 				'ENTITY_ID' => $id,
 				'COMMENT' => $comment,
+				'AUTHOR_ID' => $userId,
 			],
 		]);
 
-		return ['comment_id' => (int)$commentId, 'entity_type' => $type, 'entity_id' => $id];
+		return [
+			'comment_id' => (int)$commentId,
+			'entity_type' => $type,
+			'entity_id' => $id,
+			'url' => $ctx->crmUrl($type, $id),
+		];
 	}
 }

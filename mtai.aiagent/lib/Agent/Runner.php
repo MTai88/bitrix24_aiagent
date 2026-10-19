@@ -80,7 +80,7 @@ final class Runner
 
 		if ($result['error'] === null && $key !== '')
 		{
-			$memory->append($key, 'assistant', $result['answer']);
+			$memory->append($key, 'assistant', $result['answer'], $result['refs'] ?? []);
 		}
 
 		return $result;
@@ -250,10 +250,17 @@ final class Runner
 				. 'систему/документацию — вызывай именно их, а не CRM-инструменты и не kb_search.';
 		}
 
-		$messages = [['role' => 'system', 'content' => $system]];
-		foreach ($memory->load($key) as $item)
+		if (!str_contains($system, 'crm_activity_add'))
 		{
-			$messages[] = ['role' => $item['role'], 'content' => $item['content']];
+			$system .= "\n\nПравила: несколько результатов поиска — уточни, какую запись выбрать. "
+				. 'Перед созданием проверь дубль. Дело CRM — crm_activity_add, задача сотруднику — crm_create_task. '
+				. 'Ссылку бери из поля url.';
+		}
+
+		$messages = [['role' => 'system', 'content' => $system]];
+		foreach (\Mtai\Aiagent\Conversation\Store::forModel($memory->load($key)) as $item)
+		{
+			$messages[] = $item;
 		}
 		// Без ключа памяти история пуста — задача попадает в диалог напрямую.
 		if ($key === '')

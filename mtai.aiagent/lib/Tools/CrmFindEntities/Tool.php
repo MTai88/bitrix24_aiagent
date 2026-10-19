@@ -13,60 +13,112 @@ class Tool
 		$typeId = $ctx::entityTypeId($type);
 		$limit = max(1, min(10, (int)($args['limit'] ?? 5)));
 
-		$filter = $this->buildFilter($args, $type, $typeId, $ctx);
+		$filter = $this->buildFilter($args, $type, $ctx);
 		if (isset($filter['__error__']))
 		{
-			return ['error' => $filter['__error__']];
+			$error = ['error' => $filter['__error__']];
+			if (!empty($filter['candidates']))
+			{
+				$error['candidates'] = $filter['candidates'];
+			}
+
+			return $error;
 		}
 
+		// Лимит REST больше запрошенного: отсев по правам идёт после выборки,
+		// иначе чужие карточки вебхука вытесняют доступные сотруднику.
+		$fetch = min(50, $limit * 4);
 		$result = $ctx->restCall('crm.item.list', [
 			'entityTypeId' => $typeId,
 			'filter' => $filter,
 			'select' => ['id', 'title', 'name', 'lastName', 'opportunity', 'currencyId',
-				'assignedById', 'stageId', 'categoryId', 'createdTime', 'contactId', 'companyId'],
-			'limit' => $limit,
+				'assignedById', 'stageId', 'categoryId', 'createdTime', 'contactId', 'companyId',
+				'closedate', 'sourceId', 'lastActivityTime', 'fm'],
+			'limit' => $fetch,
 			'order' => ['createdTime' => 'DESC'],
 		]);
 
-		// Показываем только сущности, доступные сотруднику на чтение.
 		$items = [];
 		foreach ((array)($result['items'] ?? []) as $item)
 		{
 			$item = (array)$item;
-			if (AccessGuard::crmCanRead($userId, $type, (int)($item['id'] ?? 0)))
+			if (!AccessGuard::crmCanRead($userId, $type, (int)($item['id'] ?? 0)))
 			{
-				$items[] = $this->formatItem($item, $type);
+				continue;
+			}
+			$items[] = $ctx->presentCrmItem($item, $type);
+			if (count($items) >= $limit)
+			{
+				break;
 			}
 		}
 
-		return ['items' => $items, 'total' => count($items)];
+		return ['items' => $items, 'total' => count($items), 'entity_type' => $type];
 	}
 
 	/** Сборка REST-фильтра из аргументов LLM. */
-	private function buildFilter(array $args, string $type, int $typeId, Context $ctx): array
+	private function buildFilter(array $args, string $type, Context $ctx): array
 	{
 		$filter = [];
 
-		// Название (для контакта — по NAME).
 		$query = trim((string)($args['query'] ?? ''));
 		if ($query !== '')
 		{
-			$filter[$type === 'contact' ? '%name' : '%title'] = $query;
+			if ($type === 'contact')
+			{
+				$ids = $ctx->findContactIds($query, 10);
+				if ($ids === [])
+				{
+					return ['__error__' => "Контакт «{$query}» не найден"];
+				}
+				$filter['@id'] = $ids;
+			}
+			elseif ($ctx::looksLikePhone($query) || $ctx::looksLikeEmail($query))
+			{
+				$commType = $ctx::looksLikeEmail($query) ? 'EMAIL' : 'PHONE';
+				$ids = $ctx->findByComm($commType, $query)[$type] ?? [];
+				if ($ids === [])
+				{
+					return ['__error__' => "По «{$query}» ничего не найдено"];
+				}
+				$filter['@id'] = $ids;
+			}
+			else
+			{
+				$filter['%title'] = $query;
+			}
+		}
+
+		$commIds = $this->idsByComm($args, $type, $ctx);
+		if (isset($commIds['__error__']))
+		{
+			return $commIds;
+		}
+		if ($commIds !== null)
+		{
+			$filter['@id'] = isset($filter['@id'])
+				? array_values(array_intersect($filter['@id'], $commIds))
+				: $commIds;
+			if ($filter['@id'] === [])
+			{
+				return ['__error__' => 'Ничего не найдено по телефону/email и остальным критериям'];
+			}
 		}
 
 		$isDeal = $type === 'deal';
-		if ($isDeal)
+		$isLead = $type === 'lead';
+		if ($isDeal || $isLead)
 		{
-			// Стадия: точный status_id или семантика (open/won/lost).
 			$stageId = trim((string)($args['stage_id'] ?? ''));
 			$semantic = trim((string)($args['stage_semantic'] ?? ''));
 			if ($stageId !== '')
 			{
-				$filter['=stageId'] = $stageId;
+				$categoryForStage = $isDeal ? (int)($args['category_id'] ?? 0) : 0;
+				$resolved = $ctx->resolveStage($type, $categoryForStage, $stageId);
+				$filter['=stageId'] = $resolved ?? $stageId;
 			}
 			elseif ($semantic !== '')
 			{
-				// stageSemanticId: P — в работе, S — успех, F — провал.
 				$filter['=stageSemanticId'] = match ($semantic)
 				{
 					'won' => 'S',
@@ -74,13 +126,15 @@ class Tool
 					default => 'P',
 				};
 			}
+		}
 
-			// Воронка: название приоритетнее ID.
+		if ($isDeal)
+		{
 			$categoryId = null;
 			$categoryName = trim((string)($args['category_name'] ?? ''));
 			if ($categoryName !== '')
 			{
-				$categoryId = $this->resolveCategoryId($categoryName, $ctx);
+				$categoryId = $ctx->resolveCategoryId($categoryName);
 				if ($categoryId === null)
 				{
 					return ['__error__' => "Воронка «{$categoryName}» не найдена"];
@@ -94,36 +148,42 @@ class Tool
 			{
 				$filter['=categoryId'] = $categoryId;
 			}
+
+			if (!empty($args['close_from']))
+			{
+				$filter['>=closedate'] = $this->normalizeDate((string)$args['close_from']);
+			}
+			if (!empty($args['close_to']))
+			{
+				$filter['<=closedate'] = $this->normalizeDate((string)$args['close_to'], true);
+			}
+			if (!empty($args['inactive_days']))
+			{
+				$days = max(1, (int)$args['inactive_days']);
+				$filter['<lastActivityTime'] = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+			}
 		}
 
-		// Сумма (диапазон).
-		if (!empty($args['amount_min']))
+		if (isset($args['amount_min']) && $args['amount_min'] !== '' && $args['amount_min'] !== null)
 		{
 			$filter['>=opportunity'] = (float)$args['amount_min'];
 		}
-		if (!empty($args['amount_max']))
+		if (isset($args['amount_max']) && $args['amount_max'] !== '' && $args['amount_max'] !== null)
 		{
 			$filter['<=opportunity'] = (float)$args['amount_max'];
 		}
 
-		// Ответственный: имя → ID.
 		$responsible = trim((string)($args['responsible'] ?? ''));
 		if ($responsible !== '')
 		{
-			$responsibleId = ctype_digit($responsible)
-				? (int)$responsible
-				: $this->findUserId($responsible, $ctx);
-			if ($responsibleId > 0)
+			$resolved = $ctx->resolveUser($responsible);
+			if (!isset($resolved['id']))
 			{
-				$filter['=assignedById'] = $responsibleId;
+				return ['__error__' => (string)($resolved['error'] ?? 'Ответственный не найден'), 'candidates' => $resolved['candidates'] ?? null];
 			}
-			else
-			{
-				return ['__error__' => "Ответственный «{$responsible}» не найден"];
-			}
+			$filter['=assignedById'] = (int)$resolved['id'];
 		}
 
-		// Дата создания (диапазон).
 		if (!empty($args['created_from']))
 		{
 			$filter['>=createdTime'] = $this->normalizeDate((string)$args['created_from']);
@@ -133,10 +193,9 @@ class Tool
 			$filter['<=createdTime'] = $this->normalizeDate((string)$args['created_to'], true);
 		}
 
-		// Связанные компания/контакт: ID или название → ID.
 		if (!empty($args['company']))
 		{
-			$companyId = $this->resolveRelatedId((string)$args['company'], 'company', $ctx);
+			$companyId = $ctx->findCompanyId((string)$args['company']);
 			if ($companyId > 0)
 			{
 				$filter['=companyId'] = $companyId;
@@ -152,14 +211,21 @@ class Tool
 		}
 		if (!empty($args['contact']))
 		{
-			$contactId = $this->resolveRelatedId((string)$args['contact'], 'contact', $ctx);
+			$contactId = $ctx->findContactId((string)$args['contact']);
 			if ($contactId > 0)
 			{
 				$filter['=contactId'] = $contactId;
 			}
 			elseif ($type === 'contact')
 			{
-				$filter['%name'] = (string)$args['contact'];
+				$ids = $ctx->findContactIds((string)$args['contact'], 10);
+				if ($ids === [])
+				{
+					return ['__error__' => 'Контакт «' . $args['contact'] . '» не найден'];
+				}
+				$filter['@id'] = isset($filter['@id'])
+					? array_values(array_intersect($filter['@id'], $ids))
+					: $ids;
 			}
 			else
 			{
@@ -170,148 +236,29 @@ class Tool
 		return $filter;
 	}
 
-	/** Компактное представление элемента для модели. */
-	private function formatItem(array $item, string $type): array
-	{
-		$out = [
-			'id' => (int)($item['id'] ?? 0),
-			'title' => (string)($item['title'] ?? ''),
-			'assignedById' => (int)($item['assignedById'] ?? 0),
-		];
-
-		if ($type === 'contact' && $out['title'] === '')
-		{
-			$out['title'] = trim(($item['name'] ?? '') . ' ' . ($item['lastName'] ?? ''));
-		}
-
-		foreach (['opportunity', 'currencyId', 'stageId', 'categoryId', 'createdTime', 'contactId', 'companyId'] as $field)
-		{
-			if (!empty($item[$field]))
-			{
-				$out[$field] = $item[$field];
-			}
-		}
-
-		return $out;
-	}
-
-	/** ID воронки по названию (crm.dealcategory.list). */
-	private function resolveCategoryId(string $name, Context $ctx): ?int
-	{
-		$normalizedName = mb_strtolower($name);
-
-		// «Общая» — категория 0, в списке категорий отсутствует.
-		if (in_array($normalizedName, ['общая', 'general', 'default'], true))
-		{
-			return 0;
-		}
-
-		$result = $ctx->restCall('crm.dealcategory.list', []);
-		foreach ((array)($result ?? []) as $category)
-		{
-			$category = (array)$category;
-			if (mb_strtolower((string)($category['NAME'] ?? '')) === $normalizedName)
-			{
-				return (int)$category['ID'];
-			}
-		}
-
-		// Частичное совпадение.
-		foreach ((array)($result ?? []) as $category)
-		{
-			$category = (array)$category;
-			if (mb_stripos((string)($category['NAME'] ?? ''), $normalizedName) !== false)
-			{
-				return (int)$category['ID'];
-			}
-		}
-
-		return null;
-	}
-
-	/** Поиск пользователя по имени или «Имя Фамилия» (user.search). */
-	private function findUserId(string $name, Context $ctx): int
-	{
-		$queries = [$name];
-		$parts = preg_split('/\s+/', trim($name)) ?: [$name];
-		if (count($parts) >= 2)
-		{
-			// user.search по NAME матчит и «Имя Фамилия» целиком в некоторых
-			// сборках, и только имя — пробуем оба варианта плюс фамилию.
-			$queries[] = $parts[0];
-			$queries[] = $parts[1];
-		}
-
-		foreach ($queries as $query)
-		{
-			$result = $ctx->restCall('user.search', ['FILTER' => ['NAME' => $query]]);
-			foreach ((array)$result as $user)
-			{
-				$user = (array)$user;
-				$full = trim(($user['NAME'] ?? '') . ' ' . ($user['LAST_NAME'] ?? ''));
-				// Для короткого запроса (имя) берём первое совпадение;
-				// для полного — требуем совпадения имени или фамилии.
-				if (mb_stripos($full, $query) !== false)
-				{
-					return (int)($user['ID'] ?? 0);
-				}
-			}
-		}
-
-		return 0;
-	}
-
 	/**
-	 * ID связанной сущности: число или название. Контакт ищется по имени,
-	 * фамилии и их комбинации (в CRM это разные поля, «%name» матчит
-	 * только первое слово).
+	 * ID по явному телефону/email. null — критерий не задан.
+	 * @return int[]|array{__error__: string}|null
 	 */
-	private function resolveRelatedId(string $value, string $type, Context $ctx): int
+	private function idsByComm(array $args, string $type, Context $ctx): ?array
 	{
-		if (ctype_digit($value))
+		$ids = null;
+		foreach (['phone' => 'PHONE', 'email' => 'EMAIL'] as $key => $commType)
 		{
-			return (int)$value;
+			$value = trim((string)($args[$key] ?? ''));
+			if ($value === '')
+			{
+				continue;
+			}
+			$found = $ctx->findByComm($commType, $value)[$type] ?? [];
+			if ($found === [])
+			{
+				return ['__error__' => ($commType === 'PHONE' ? 'Телефон' : 'Email') . " «{$value}» не найден"];
+			}
+			$ids = $ids === null ? $found : array_values(array_intersect($ids, $found));
 		}
 
-		$typeId = $ctx::entityTypeId($type);
-
-		if ($type === 'contact')
-		{
-			$filters = [];
-			$parts = preg_split('/\s+/', trim($value)) ?: [$value];
-			if (count($parts) >= 2)
-			{
-				$filters[] = ['=name' => $parts[0], '=lastName' => implode(' ', array_slice($parts, 1))];
-			}
-			$filters[] = ['%name' => $value];
-			$filters[] = ['%lastName' => $value];
-
-			foreach ($filters as $filter)
-			{
-				$result = $ctx->restCall('crm.item.list', [
-					'entityTypeId' => $typeId,
-					'filter' => $filter,
-					'select' => ['id'],
-					'limit' => 1,
-				]);
-				$found = (int)(((array)($result['items'][0] ?? []))['id'] ?? 0);
-				if ($found > 0)
-				{
-					return $found;
-				}
-			}
-
-			return 0;
-		}
-
-		$result = $ctx->restCall('crm.item.list', [
-			'entityTypeId' => $typeId,
-			'filter' => ['%title' => $value],
-			'select' => ['id'],
-			'limit' => 1,
-		]);
-
-		return (int)(((array)($result['items'][0] ?? []))['id'] ?? 0);
+		return $ids;
 	}
 
 	/** YYYY-MM-DD → формат фильтра; для «до» — конец дня. */

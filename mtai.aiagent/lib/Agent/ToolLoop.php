@@ -44,22 +44,32 @@ final class ToolLoop
 	): array {
 		$options = trim($model) !== '' ? ['model' => trim($model)] : [];
 
+		$refs = [];
+
 		try
 		{
 			if ($provider->supportsTools())
 			{
-				return ['answer' => self::runNative($messages, $provider, $executor, $userId, $options, $mcp, $onProgress), 'error' => null];
+				return [
+					'answer' => self::runNative($messages, $provider, $executor, $userId, $options, $mcp, $onProgress, $refs),
+					'error' => null,
+					'refs' => $refs,
+				];
 			}
 
-			return ['answer' => self::runJsonProtocol($messages, $provider, $executor, $userId, $options, $onProgress), 'error' => null];
+			return [
+				'answer' => self::runJsonProtocol($messages, $provider, $executor, $userId, $options, $onProgress, $refs),
+				'error' => null,
+				'refs' => $refs,
+			];
 		}
 		catch (\Mtai\Aiagent\LlmException $e)
 		{
-			return ['answer' => '', 'error' => $e->getMessage()];
+			return ['answer' => '', 'error' => $e->getMessage(), 'refs' => $refs];
 		}
 	}
 
-	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?Manager $mcp = null, ?callable $onProgress = null): string
+	private static function runNative(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?Manager $mcp = null, ?callable $onProgress = null, array &$refs = []): string
 	{
 		$tools = Tools::definitions();
 		if ($mcp !== null)
@@ -98,6 +108,7 @@ final class ToolLoop
 			foreach ($answer['toolCalls'] as $call)
 			{
 				$result = $executor->execute($call['name'], (array)$call['arguments'], $userId);
+				self::absorbRefs($refs, (string)$call['name'], $result);
 				$messages[] = [
 					'role' => 'tool',
 					'tool_call_id' => $call['id'],
@@ -109,7 +120,7 @@ final class ToolLoop
 		return 'Выполнил действия, но ответ не сформировался — уточните запрос, пожалуйста.';
 	}
 
-	private static function runJsonProtocol(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?callable $onProgress = null): string
+	private static function runJsonProtocol(array $messages, ProviderInterface $provider, ToolExecutor $executor, int $userId, array $options = [], ?callable $onProgress = null, array &$refs = []): string
 	{
 		for ($i = 0; $i < self::MAX_ITERATIONS; $i++)
 		{
@@ -144,6 +155,7 @@ final class ToolLoop
 			$arguments = (array)($command['arguments'] ?? []);
 
 			$result = $executor->execute($name, $arguments, $userId);
+			self::absorbRefs($refs, $name, $result);
 
 			$messages[] = ['role' => 'assistant', 'content' => $content];
 			$messages[] = [
@@ -241,6 +253,79 @@ final class ToolLoop
 		catch (\Throwable)
 		{
 			return [];
+		}
+	}
+
+	/**
+	 * Короткие метки сущностей из результата инструмента — для следующей реплики.
+	 * @param string[] $refs
+	 */
+	private static function absorbRefs(array &$refs, string $tool, array $result): void
+	{
+		if (isset($result['error']))
+		{
+			return;
+		}
+
+		$push = static function (string $type, int $id, string $title = '') use (&$refs): void
+		{
+			if ($id <= 0 || $type === '')
+			{
+				return;
+			}
+			$label = $type . ' #' . $id;
+			$title = trim($title);
+			if ($title !== '')
+			{
+				$label .= ' «' . mb_substr($title, 0, 80) . '»';
+			}
+			if (!in_array($label, $refs, true))
+			{
+				$refs[] = $label;
+			}
+		};
+
+		$schedule = in_array($tool, ['schedule_task', 'list_scheduled_tasks', 'cancel_scheduled_task'], true);
+		if (isset($result['entity_type']))
+		{
+			$push(
+				(string)$result['entity_type'],
+				(int)($result['id'] ?? $result['entity_id'] ?? 0),
+				(string)($result['title'] ?? '')
+			);
+		}
+		if (isset($result['task_id']))
+		{
+			$push($schedule ? 'schedule' : 'task', (int)$result['task_id'], (string)($result['title'] ?? ''));
+		}
+		if (isset($result['activity_id']))
+		{
+			$push('activity', (int)$result['activity_id'], (string)($result['title'] ?? ''));
+		}
+
+		foreach ((array)($result['items'] ?? []) as $item)
+		{
+			if (!is_array($item))
+			{
+				continue;
+			}
+			$push((string)($item['entity_type'] ?? 'crm'), (int)($item['id'] ?? 0), (string)($item['title'] ?? ''));
+		}
+		if (!$schedule)
+		{
+			foreach ((array)($result['tasks'] ?? []) as $item)
+			{
+				if (!is_array($item))
+				{
+					continue;
+				}
+				$push('task', (int)($item['id'] ?? $item['task_id'] ?? 0), (string)($item['title'] ?? ''));
+			}
+		}
+
+		if (count($refs) > 12)
+		{
+			$refs = array_slice($refs, 0, 12);
 		}
 	}
 

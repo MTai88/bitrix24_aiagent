@@ -26,6 +26,31 @@ class ScheduleTable extends DataManager
 		return 'mtai_aiagent_schedule';
 	}
 
+	/**
+	 * Колонка повтора для уже установленных порталов (CREATE TABLE IF NOT EXISTS
+	 * её не добавит). Вызывается перед чтением и записью REPEAT_RULE.
+	 */
+	public static function ensureRepeatColumn(): void
+	{
+		static $ready = false;
+		if ($ready)
+		{
+			return;
+		}
+
+		global $DB;
+		$exists = $DB->Query("SHOW COLUMNS FROM mtai_aiagent_schedule LIKE 'REPEAT_RULE'")->Fetch();
+		if (!$exists)
+		{
+			$DB->Query(
+				"ALTER TABLE mtai_aiagent_schedule
+				 ADD REPEAT_RULE VARCHAR(16) NOT NULL DEFAULT '' AFTER INSTRUCTION"
+			);
+		}
+
+		$ready = true;
+	}
+
 	public static function getMap(): array
 	{
 		return [
@@ -39,6 +64,9 @@ class ScheduleTable extends DataManager
 				->configureDefaultValue(''),
 			(new \Bitrix\Main\Entity\TextField('INSTRUCTION'))
 				->configureRequired(),
+			(new \Bitrix\Main\Entity\StringField('REPEAT_RULE'))
+				->configureSize(16)
+				->configureDefaultValue(''),
 			(new \Bitrix\Main\Entity\DatetimeField('RUN_AT'))
 				->configureRequired(),
 			(new \Bitrix\Main\Entity\StringField('STATUS'))
