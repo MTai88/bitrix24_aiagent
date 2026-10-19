@@ -121,6 +121,7 @@ if ($isPost && check_bitrix_sessid() && $postAction === 'save')
 		'ol_lines', 'ol_system_prompt', 'ol_handoff_text', 'ol_welcome_message',
 		'transfer_user_id', 'ol_work_hours', 'ol_work_days', 'ol_offhours_text',
 		'chat_system_prompt', 'chat_allowed_users', 'history_depth',
+		'voice_model', 'voice_max_seconds', 'voice_mock_text',
 		'portal_url', 'app_client_id', 'bot_code', 'bot_name',
 		'rest_auth_mode', 'webhook_user_id', 'gigachat_scope',
 		'log_level', 'notify_admin_user',
@@ -135,10 +136,14 @@ if ($isPost && check_bitrix_sessid() && $postAction === 'save')
 	}
 
 	// Чекбоксы: отсутствующий в POST = N.
-	foreach (['ol_enabled', 'ol_no_answer_escalate', 'ol_self_check', 'ol_create_lead', 'chat_enabled', 'chat_read_receipt', 'chat_typing_status', 'llm_ssl_verify', 'mcp_enabled'] as $flag)
+	foreach (['ol_enabled', 'ol_no_answer_escalate', 'ol_self_check', 'ol_create_lead', 'chat_enabled', 'chat_read_receipt', 'chat_typing_status', 'voice_enabled', 'llm_ssl_verify', 'mcp_enabled'] as $flag)
 	{
 		Config::set($flag, isset($_POST[$flag]) ? 'Y' : 'N');
 	}
+
+	$voiceSeconds = Config::getInt('voice_max_seconds', 60);
+	$voiceCap = Config::get('llm_provider', 'mock') === 'yandex' ? 30 : 120;
+	Config::set('voice_max_seconds', (string)max(5, min($voiceCap, $voiceSeconds)));
 
 	// MCP-серверы: строки вкладки «MCP». Пустой API-ключ в POST не затирает
 	// сохранённый — ищем прежнее значение по паре «имя + URL».
@@ -654,6 +659,40 @@ $tabControl->Begin();
 	<tr>
 		<td><?= GetMessage('MTAI_AIAGENT_HISTORY') ?></td>
 		<td><input type="text" size="5" name="history_depth" value="<?= htmlspecialcharsbx(Config::get('history_depth')) ?>"></td>
+	</tr>
+	<tr class="heading">
+		<td colspan="2"><?= GetMessage('MTAI_AIAGENT_VOICE_HEADING') ?></td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_VOICE_ENABLED') ?></td>
+		<td><input type="checkbox" name="voice_enabled" value="Y" <?= Config::isEnabled('voice_enabled') ? 'checked' : '' ?>></td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_VOICE_MODEL') ?></td>
+		<td>
+			<input type="text" size="30" name="voice_model" value="<?= htmlspecialcharsbx(Config::get('voice_model')) ?>">
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_VOICE_MODEL_HINT') ?></div>
+		</td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_VOICE_MAX') ?></td>
+		<td>
+			<input type="text" size="5" name="voice_max_seconds" value="<?= htmlspecialcharsbx(Config::get('voice_max_seconds')) ?>">
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_VOICE_MAX_HINT') ?></div>
+		</td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_VOICE_MOCK') ?></td>
+		<td>
+			<input type="text" size="40" name="voice_mock_text" value="<?= htmlspecialcharsbx(Config::get('voice_mock_text')) ?>">
+			<div class="adm-option-comment"><?= GetMessage('MTAI_AIAGENT_VOICE_MOCK_HINT') ?></div>
+		</td>
+	</tr>
+	<tr>
+		<td><?= GetMessage('MTAI_AIAGENT_VOICE_STATUS') ?></td>
+		<td><?= \Mtai\Aiagent\Stt\Factory::isAvailable()
+			? GetMessage('MTAI_AIAGENT_VOICE_STATUS_OK')
+			: GetMessage('MTAI_AIAGENT_VOICE_STATUS_NO') ?></td>
 	</tr>
 
 	<?php $tabControl->BeginNextTab(); ?>

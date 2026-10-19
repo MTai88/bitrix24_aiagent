@@ -224,6 +224,13 @@ class mtai_aiagent extends CModule
 			true
 		);
 
+		CopyDirFiles(
+			__DIR__ . '/js',
+			$_SERVER['DOCUMENT_ROOT'] . '/bitrix/js',
+			true,
+			true
+		);
+
 		return true;
 	}
 
@@ -239,6 +246,7 @@ class mtai_aiagent extends CModule
 		}
 
 		DeleteDirFilesEx('/bitrix/activities/custom/mtaiagentactivity');
+		DeleteDirFilesEx('/bitrix/js/mtai/aiagent');
 
 		return true;
 	}

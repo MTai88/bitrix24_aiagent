@@ -56,6 +56,10 @@ $mtai_aiagent_default_option = [
 	'history_depth' => '12',             // сообщений контекста на диалог
 	'chat_read_receipt' => 'Y',          // входящее сообщение сразу «прочитано» ботом
 	'chat_typing_status' => 'Y',         // «AI-агент размышает...» на время обработки ответа
+	'voice_enabled' => 'N',              // кнопка микрофона в чате с ботом
+	'voice_model' => 'whisper-1',        // модель /audio/transcriptions (OpenAI)
+	'voice_max_seconds' => '60',         // для Yandex SpeechKit обрезается до 30
+	'voice_mock_text' => 'что у меня сегодня',
 
 	// ---------- REST-приложение и бот ----------
 	// Авторизация: oauth — локальное приложение (client_id/secret/refresh),

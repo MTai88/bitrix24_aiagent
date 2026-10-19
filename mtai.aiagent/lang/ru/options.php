@@ -134,6 +134,17 @@ $MESS['MTAI_AIAGENT_CHAT_READ_RECEIPT'] = 'Отмечать сообщения �
 $MESS['MTAI_AIAGENT_CHAT_TYPING'] = 'Индикатор «бот печатает»';
 $MESS['MTAI_AIAGENT_CHAT_TYPING_HINT'] = '«AI-агент размышает...» в диалоге на время обработки ответа (imbot.v2.Chat.InputAction.notify).';
 $MESS['MTAI_AIAGENT_HISTORY'] = 'Глубина истории (сообщений)';
+$MESS['MTAI_AIAGENT_VOICE_HEADING'] = 'Голосовые сообщения';
+$MESS['MTAI_AIAGENT_VOICE_ENABLED'] = 'Кнопка микрофона в чате с ботом';
+$MESS['MTAI_AIAGENT_VOICE_MODEL'] = 'Модель распознавания (OpenAI)';
+$MESS['MTAI_AIAGENT_VOICE_MODEL_HINT'] = 'Для /audio/transcriptions, по умолчанию whisper-1. Ключ и URL — те же, что у LLM. Yandex SpeechKit модель не использует.';
+$MESS['MTAI_AIAGENT_VOICE_MAX'] = 'Максимум записи, секунд';
+$MESS['MTAI_AIAGENT_VOICE_MAX_HINT'] = 'От 5 до 120. Для Yandex SpeechKit не больше 30 (синхронный режим, до 1 МБ).';
+$MESS['MTAI_AIAGENT_VOICE_MOCK'] = 'Фраза мок-распознавания';
+$MESS['MTAI_AIAGENT_VOICE_MOCK_HINT'] = 'Что «услышит» провайдер «Мок». Нужна для проверки кнопки без ключа распознавания.';
+$MESS['MTAI_AIAGENT_VOICE_STATUS'] = 'Распознавание';
+$MESS['MTAI_AIAGENT_VOICE_STATUS_OK'] = 'доступно для текущего провайдера';
+$MESS['MTAI_AIAGENT_VOICE_STATUS_NO'] = 'не поддерживается провайдером или не задан ключ (GigaChat речь не распознаёт)';
 
 $MESS['MTAI_AIAGENT_RAG_TOPK'] = 'Фрагментов в контексте (top-K)';
 $MESS['MTAI_AIAGENT_RAG_MINSCORE'] = 'Порог релевантности (0..1)';

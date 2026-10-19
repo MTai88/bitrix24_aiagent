@@ -102,6 +102,14 @@ try
 			{
 				$out($line);
 			}
+			foreach (\Mtai\Aiagent\EventHandler::ensureEvents() as $line)
+			{
+				$out($line);
+			}
+			foreach (\Mtai\Aiagent\EventHandler::ensureFiles() as $line)
+			{
+				$out($line);
+			}
 			break;
 
 		case 'loop':

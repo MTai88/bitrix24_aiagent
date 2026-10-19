@@ -237,6 +237,24 @@ REST при этом ходит от владельца вебхука — но 
 не выполняется. То же действует в активности БП (параметр «ID пользователя»).
 Список разрешённых пользователей — опция (пусто = все сотрудники).
 
+### Голосовые сообщения
+
+Кнопка микрофона в веб-мессенджере, только в личном чате с ботом
+(расширение `mtai.aiagent.voice`, обработчик `OnEpilog`). Запись — WAV
+PCM 16 кГц моно, без ffmpeg. Файл `ai-voice-*.wav` уходит в чат от имени
+сотрудника (`Controller\Voice` → `CIMDisk::UploadFileFromMain`). Бот
+распознаёт его тем же провайдером, что и чат: OpenAI `/audio/transcriptions`
+(модель `voice_model`, по умолчанию `whisper-1`) или Yandex SpeechKit
+(сырой PCM, не дольше 30 секунд). Провайдер «Мок» возвращает фразу
+`voice_mock_text`. GigaChat речь не распознаёт, кнопка скрыта.
+После распознавания бот пишет «Распознал: …» и отвечает как на обычный текст.
+
+Настройки на вкладке «Чаты»: `voice_enabled`, `voice_model`,
+`voice_max_seconds`, `voice_mock_text`. На уже установленном модуле
+кнопку и JS подхватывает `worker.php agents` (`ensureEvents` + `ensureFiles`).
+
+Проверка: `php local/modules/mtai.aiagent/cli/eval.php voice [userId] [wav|silence]`.
+
 ### Индикаторы присутствия бота
 
 Настройки `chat_read_receipt` / `chat_typing_status` (обе по умолчанию

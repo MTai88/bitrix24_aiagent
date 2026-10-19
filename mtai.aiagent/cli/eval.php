@@ -9,6 +9,9 @@
  *   php local/modules/mtai.aiagent/cli/eval.php live
  *     — один вызов LLM на фразу: первый инструмент должен совпасть.
  *       На мок-провайдере пропускается.
+ *   php local/modules/mtai.aiagent/cli/eval.php voice [userId] [wav|silence]
+ *     — распознавание WAV и файл ai-voice-*.wav в чате с ботом.
+ *       voice_enabled=Y — дальше тот же конвейер, что у обычного сообщения.
  */
 
 declare(strict_types=1);
@@ -32,8 +35,15 @@ define('BX_NO_ACCELERATOR_RESET', true);
 require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php';
 
 use Bitrix\Main\Loader;
+use Mtai\Aiagent\Chat\VoiceMessage;
+use Mtai\Aiagent\Chat\VoicePublisher;
+use Mtai\Aiagent\Config;
+use Mtai\Aiagent\Event\Fetcher;
 use Mtai\Aiagent\Llm\Factory;
+use Mtai\Aiagent\Queue\Processor;
 use Mtai\Aiagent\Rest\Client;
+use Mtai\Aiagent\Stt\Factory as SttFactory;
+use Mtai\Aiagent\Stt\Wav;
 use Mtai\Aiagent\Tools\ToolRegistry;
 
 if (!Loader::includeModule('mtai.aiagent'))
@@ -163,5 +173,79 @@ if ($command === 'live')
 	exit($failed === 0 ? 0 : 1);
 }
 
-$out('Usage: eval.php check|probe [userId]|live');
+if ($command === 'voice')
+{
+	$userId = (int)($argv[2] ?? 1);
+	$wavPath = (string)($argv[3] ?? 'silence');
+	if ($wavPath === 'silence')
+	{
+		$wavPath = sys_get_temp_dir() . '/mtai-voice-silence.wav';
+		file_put_contents($wavPath, Wav::silence(1));
+	}
+	if (!is_file($wavPath))
+	{
+		$out('FAIL файл не найден: ' . $wavPath);
+		exit(1);
+	}
+
+	$stt = SttFactory::make();
+	$out('stt available: ' . ($stt->isAvailable() ? 'yes' : 'no') . ', provider ' . Config::get('llm_provider', 'mock'));
+	if (!$stt->isAvailable())
+	{
+		$out('FAIL распознавание недоступно для текущего провайдера');
+		exit(1);
+	}
+
+	try
+	{
+		$text = $stt->transcribe($wavPath, 'audio/wav');
+		$out('stt: ' . ($text !== '' ? $text : '(пусто)'));
+	}
+	catch (\Throwable $e)
+	{
+		$out('FAIL stt — ' . $e->getMessage());
+		exit(1);
+	}
+
+	try
+	{
+		$messageId = VoicePublisher::publish($userId, $wavPath);
+	}
+	catch (\Throwable $e)
+	{
+		$out('FAIL publish — ' . $e->getMessage());
+		exit(1);
+	}
+
+	$file = VoiceMessage::extract($messageId);
+	if ($file === null)
+	{
+		$out('FAIL extract message ' . $messageId);
+		exit(1);
+	}
+	$out('extract ok message=' . $messageId . ' ' . $file['name']);
+
+	if (!Config::isEnabled('voice_enabled'))
+	{
+		$out('pipeline skipped: voice_enabled=N (файл в чате есть, бот его не распознает)');
+		exit(0);
+	}
+
+	$created = 0;
+	$processed = 0;
+	for ($i = 0; $i < 3; $i++)
+	{
+		$created += (new Fetcher())->tick();
+		$processed += (new Processor())->tick();
+		if ($created > 0 && $processed > 0)
+		{
+			break;
+		}
+		sleep(1);
+	}
+	$out("pipeline fetched={$created} processed={$processed}");
+	exit(0);
+}
+
+$out('Usage: eval.php check|probe [userId]|live|voice [userId] [wav|silence]');
 exit(1);

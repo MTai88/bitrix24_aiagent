@@ -67,6 +67,17 @@ final class ChatHandler
 			return false;
 		}
 
+		return self::userAllowed($userId);
+	}
+
+	/** Сотрудник из списка chat_allowed_users (пусто = все). Чат при этом должен быть включён. */
+	public static function userAllowed(int $userId): bool
+	{
+		if (!Config::isEnabled('chat_enabled') || $userId <= 0)
+		{
+			return false;
+		}
+
 		$allowed = Config::getCommaList('chat_allowed_users');
 
 		return $allowed === [] || in_array((string)$userId, $allowed, true);
@@ -107,10 +118,6 @@ final class ChatHandler
 
 		$message = (array)($data['message'] ?? []);
 		$text = trim((string)($message['text'] ?? ''));
-		if ($text === '')
-		{
-			return;
-		}
 
 		$botId = Manager::botUserId();
 		// dialogId персонализирован для бота: ID собеседника.
@@ -121,6 +128,15 @@ final class ChatHandler
 		}
 
 		$chatId = (int)($chat['id'] ?? 0);
+
+		if ($text === '')
+		{
+			$text = (string)$this->transcribeVoice($message, $botId, $dialogId);
+			if ($text === '')
+			{
+				return;
+			}
+		}
 
 		// «размышает...» продлевается на время обработки (read-метка уже
 		// сдвинута на fetch — повторный markRead не нужен).
@@ -145,6 +161,49 @@ final class ChatHandler
 
 		$this->send($botId, $dialogId, $reply);
 		$this->memory->append($key, 'assistant', $reply, $result['refs'] ?? []);
+	}
+
+	/**
+	 * Пустое сообщение с файлом ai-voice-*.wav → текст.
+	 * null — это не наше голосовое (обработчик молчит, как и раньше).
+	 * Пустая строка не возвращается: ошибка распознавания уже отправлена в чат.
+	 */
+	private function transcribeVoice(array $message, int $botId, string $dialogId): ?string
+	{
+		if (!Config::isEnabled('voice_enabled'))
+		{
+			return null;
+		}
+
+		$file = \Mtai\Aiagent\Chat\VoiceMessage::extract((int)($message['id'] ?? 0));
+		if ($file === null)
+		{
+			return null;
+		}
+
+		try
+		{
+			$text = trim(\Mtai\Aiagent\Stt\Factory::make()->transcribe($file['path'], 'audio/wav'));
+		}
+		catch (\Throwable $e)
+		{
+			Logger::error('chat', 'voice transcribe failed: ' . $e->getMessage());
+			$this->send($botId, $dialogId, 'Не удалось распознать голосовое: ' . mb_substr($e->getMessage(), 0, 200));
+
+			return '';
+		}
+
+		if ($text === '')
+		{
+			$this->send($botId, $dialogId, 'Не удалось распознать голосовое: речь не распознана.');
+
+			return '';
+		}
+
+		Logger::info('chat', 'voice transcribed message ' . (int)($message['id'] ?? 0) . ': ' . mb_substr($text, 0, 200));
+		$this->send($botId, $dialogId, 'Распознал: «' . $text . '»');
+
+		return $text;
 	}
 
 	/**

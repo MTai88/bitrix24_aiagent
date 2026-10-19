@@ -134,6 +134,17 @@ $MESS['MTAI_AIAGENT_CHAT_READ_RECEIPT'] = 'Mark messages as read';
 $MESS['MTAI_AIAGENT_CHAT_TYPING'] = '"Bot is typing" indicator';
 $MESS['MTAI_AIAGENT_CHAT_TYPING_HINT'] = 'Shows "AI agent is thinking..." while the reply is being generated (imbot.v2.Chat.InputAction.notify).';
 $MESS['MTAI_AIAGENT_HISTORY'] = 'History depth (messages)';
+$MESS['MTAI_AIAGENT_VOICE_HEADING'] = 'Voice messages';
+$MESS['MTAI_AIAGENT_VOICE_ENABLED'] = 'Microphone button in the bot chat';
+$MESS['MTAI_AIAGENT_VOICE_MODEL'] = 'Recognition model (OpenAI)';
+$MESS['MTAI_AIAGENT_VOICE_MODEL_HINT'] = 'For /audio/transcriptions, whisper-1 by default. Uses the same API key and URL as the LLM. Yandex SpeechKit ignores the model.';
+$MESS['MTAI_AIAGENT_VOICE_MAX'] = 'Max recording, seconds';
+$MESS['MTAI_AIAGENT_VOICE_MAX_HINT'] = '5 to 120. Yandex SpeechKit is capped at 30 (sync API, 1 MB).';
+$MESS['MTAI_AIAGENT_VOICE_MOCK'] = 'Mock recognition phrase';
+$MESS['MTAI_AIAGENT_VOICE_MOCK_HINT'] = 'What the Mock provider "hears". Used to test the button without a speech API key.';
+$MESS['MTAI_AIAGENT_VOICE_STATUS'] = 'Recognition';
+$MESS['MTAI_AIAGENT_VOICE_STATUS_OK'] = 'available for the current provider';
+$MESS['MTAI_AIAGENT_VOICE_STATUS_NO'] = 'not supported by the provider or the API key is empty (GigaChat has no speech recognition)';
 
 $MESS['MTAI_AIAGENT_RAG_TOPK'] = 'Context chunks (top-K)';
 $MESS['MTAI_AIAGENT_RAG_MINSCORE'] = 'Relevance threshold (0..1)';

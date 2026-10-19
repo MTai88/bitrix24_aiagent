@@ -26,6 +26,9 @@ final class EventHandler
 		$manager->registerEventHandlerCompatible(
 			'main', 'OnBuildGlobalMenu', $module, $class, 'onBuildGlobalMenu'
 		);
+		$manager->registerEventHandler(
+			'main', 'OnEpilog', $module, $class, 'onEpilog'
+		);
 
 		foreach (self::AGENTS as $name => $interval)
 		{
@@ -65,12 +68,55 @@ final class EventHandler
 		return $report;
 	}
 
+	/** Обработчик кнопки микрофона — для уже установленного модуля, без переустановки. */
+	public static function ensureEvents(): array
+	{
+		foreach (EventManager::getInstance()->findEventHandlers('main', 'OnEpilog') as $handler)
+		{
+			if (
+				($handler['TO_MODULE_ID'] ?? '') === Config::MODULE_ID
+				&& ($handler['TO_METHOD'] ?? '') === 'onEpilog'
+			)
+			{
+				return ['exists: OnEpilog'];
+			}
+		}
+
+		EventManager::getInstance()->registerEventHandler(
+			'main', 'OnEpilog', Config::MODULE_ID, static::class, 'onEpilog'
+		);
+
+		return ['added: OnEpilog'];
+	}
+
+	/** JS кнопки микрофона в /bitrix/js — ядро ищет расширения только там. */
+	public static function ensureFiles(): array
+	{
+		$documentRoot = (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
+		if ($documentRoot === '')
+		{
+			return ['FAILED: DOCUMENT_ROOT is empty'];
+		}
+
+		CopyDirFiles(
+			dirname(__DIR__) . '/install/js',
+			$documentRoot . '/bitrix/js',
+			true,
+			true
+		);
+
+		return ['copied: /bitrix/js/mtai/aiagent/voice'];
+	}
+
 	public static function unregister(): void
 	{
 		$manager = EventManager::getInstance();
 
 		$manager->unRegisterEventHandler(
 			'main', 'OnBuildGlobalMenu', Config::MODULE_ID, static::class, 'onBuildGlobalMenu'
+		);
+		$manager->unRegisterEventHandler(
+			'main', 'OnEpilog', Config::MODULE_ID, static::class, 'onEpilog'
 		);
 
 		\CAgent::RemoveModuleAgents(Config::MODULE_ID);
@@ -84,6 +130,57 @@ final class EventHandler
 		{
 			// агент с таким именем уже есть
 		}
+	}
+
+	/** Кнопка микрофона на публичных страницах, только в чате с ботом (решает сам JS). */
+	public static function onEpilog(): void
+	{
+		if (defined('ADMIN_SECTION') && ADMIN_SECTION === true)
+		{
+			return;
+		}
+
+		global $USER;
+		if (!is_object($USER) || !$USER->IsAuthorized())
+		{
+			return;
+		}
+
+		$request = \Bitrix\Main\Context::getCurrent()?->getRequest();
+		if ($request !== null && $request->isAjaxRequest())
+		{
+			return;
+		}
+
+		if (!Config::isEnabled('chat_enabled') || !Config::isEnabled('voice_enabled'))
+		{
+			return;
+		}
+		if (!\Mtai\Aiagent\Handler\ChatHandler::userAllowed((int)$USER->GetID()))
+		{
+			return;
+		}
+		if (!\Mtai\Aiagent\Stt\Factory::isAvailable())
+		{
+			return;
+		}
+
+		$botId = \Mtai\Aiagent\Bot\Manager::botUserId();
+		if ($botId <= 0)
+		{
+			return;
+		}
+
+		\Bitrix\Main\UI\Extension::load('mtai.aiagent.voice');
+		$settings = \Bitrix\Main\Web\Json::encode([
+			'botId' => (string)$botId,
+			'maxSeconds' => \Mtai\Aiagent\Stt\Limits::maxSeconds(),
+		]);
+		\Bitrix\Main\Page\Asset::getInstance()->addString(
+			'<script>BX.ready(function(){if(BX.Mtai&&BX.Mtai.Aiagent&&BX.Mtai.Aiagent.Voice){BX.Mtai.Aiagent.Voice.start('
+			. $settings
+			. ');}});</script>'
+		);
 	}
 
 	public static function onBuildGlobalMenu(&$aGlobalMenu, &$aModuleMenu): void
