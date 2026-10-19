@@ -46,6 +46,11 @@
 	font-size: 18px;
 }
 
+.mtai-voice__cancel[hidden],
+.mtai-voice__timer[hidden] {
+	display: none !important;
+}
+
 .mtai-voice--busy .mtai-voice__btn {
 	opacity: 0.45;
 	pointer-events: none;
